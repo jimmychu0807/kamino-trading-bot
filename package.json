@@ -1,0 +1,25 @@
+{
+	"name": "test01-kamino",
+	"module": "index.ts",
+	"type": "module",
+	"scripts": {
+		"start": "bun run index.ts",
+		"compile": "bunx --bun tsc --noEmit",
+		"check": "bunx biome check",
+		"format": "bunx biome check --write"
+	},
+	"dependencies": {
+		"@kamino-finance/klend-sdk": "^7.3.22",
+		"@solana/kit": "^2.3.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.15",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"overrides": {
+		"@kamino-finance/farms-sdk": "3.2.24"
+	}
+}
