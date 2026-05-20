@@ -25,13 +25,13 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 **Purpose**: Dependencies, directories, and tooling aligned with plan.md
 
-- [ ] T001 Add `zod`, `drizzle-orm`, and `@solana/kit` override per plan.md in `package.json`
-- [ ] T002 [P] Create directory scaffold: `src/config/`, `src/chain/`, `src/kamino/`, `src/strategy/`, `src/cycle/`, `src/db/`, `src/alerts/`, `drizzle/`, `data/`
-- [ ] T003 [P] Add `drizzle.config.ts` and `drizzle-kit` devDependency for SQLite migrations to `data/bot.sqlite`
-- [ ] T004 [P] Ensure `data/` and `data/bot.sqlite` are gitignored in `.gitignore`
-- [ ] T005 [P] Extend `.env.example` with vault, policy, `PREVIEW_MODE=true` default, drift trigger, cron, timeout, and `DATABASE_URL` vars per `quickstart.md`
-- [ ] T006 [P] Add npm scripts in `package.json`: `db:migrate`, `db:generate`, `cli` (`bun run src/cli.ts`)
-- [ ] T007 [P] Add `tests/unit/` and `tests/integration/` placeholders aligned with plan.md test file names
+- [X] T001 Add `zod`, `drizzle-orm`, and `@solana/kit` override per plan.md in `package.json`
+- [X] T002 [P] Create directory scaffold: `src/config/`, `src/chain/`, `src/kamino/`, `src/strategy/`, `src/cycle/`, `src/db/`, `src/alerts/`, `drizzle/`, `data/`
+- [X] T003 [P] Add `drizzle.config.ts` and `drizzle-kit` devDependency for SQLite migrations to `data/bot.sqlite`
+- [X] T004 [P] Ensure `data/` and `data/bot.sqlite` are gitignored in `.gitignore`
+- [X] T005 [P] Extend `.env.example` with vault, policy, `PREVIEW_MODE=true` default, drift trigger, cron, timeout, and `DATABASE_URL` vars per `quickstart.md`
+- [X] T006 [P] Add npm scripts in `package.json`: `db:migrate`, `db:generate`, `cli` (`bun run src/cli.ts`)
+- [X] T007 [P] Add `tests/unit/` and `tests/integration/` placeholders aligned with plan.md test file names
 
 ---
 
