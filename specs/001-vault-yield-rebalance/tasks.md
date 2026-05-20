@@ -92,14 +92,14 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ### Tests for User Story 4
 
-- [ ] T036 [P] [US4] Unit tests for `shouldRebalance` / warrant logic (including `driftBandPct` within-band skip) in `tests/unit/warrant.test.ts`
+- [X] T036 [P] [US4] Unit tests for `shouldRebalance` / warrant logic (including `driftBandPct` within-band skip) in `tests/unit/warrant.test.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Implement `shouldRebalance` with `minImprovementBps`, `cooldownMs`, `minTradeSizeBase`, `driftBandPct` in `src/strategy/warrant.ts`
-- [ ] T038 [US4] Implement critical risk exit override (bypass cooldown when `RiskScore.critical`) in `src/strategy/warrant.ts`
-- [ ] T039 [US4] Apply `maxSingleVaultPct` and `cashBufferPct` caps when building final targets in `src/strategy/allocate.ts`
-- [ ] T040 [US4] Persist `policy_snapshots` hash per cycle in `src/db/schema.ts` and write helper in `src/db/policy.ts`
+- [X] T037 [US4] Implement `shouldRebalance` with `minImprovementBps`, `cooldownMs`, `minTradeSizeBase`, `driftBandPct` in `src/strategy/warrant.ts`
+- [X] T038 [US4] Implement critical risk exit override (bypass cooldown when `RiskScore.critical`) in `src/strategy/warrant.ts`
+- [X] T039 [US4] Apply `maxSingleVaultPct` and `cashBufferPct` caps when building final targets in `src/strategy/allocate.ts`
+- [X] T040 [US4] Persist `policy_snapshots` hash per cycle in `src/db/schema.ts` and write helper in `src/db/policy.ts`
 
 **Checkpoint**: Guardrails enforced; no on-chain sends until Phase 5+ and orchestrator wires warrant (Phase 6)
 

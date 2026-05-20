@@ -70,7 +70,12 @@ export function computeTargetAllocations(
 		weights.push({ address: vault.address, raw, min, max });
 	}
 
-	const allocated = distributeWithCaps(weights, deployablePct);
+	const allocated = applyPolicyCaps(
+		distributeWithCaps(weights, deployablePct),
+		policy,
+		vaultConfigs,
+		deployablePct,
+	);
 
 	return allocated.flatMap(({ address, targetPct }) => {
 		const snapshot = snapshotByVault.get(address);
@@ -217,4 +222,70 @@ function clamp(value: number, min: number, max: number): number {
 
 function roundPct(value: number): number {
 	return Math.round(value * 1000) / 1000;
+}
+
+function applyPolicyCaps(
+	allocations: { address: string; targetPct: number }[],
+	policy: RebalancePolicy,
+	vaultConfigs: VaultConfig[],
+	deployablePct: number,
+): { address: string; targetPct: number }[] {
+	const maxByVault = new Map(
+		vaultConfigs.map((vault) => [
+			vault.address,
+			Math.min(
+				vault.maxAllocationPct ?? policy.maxSingleVaultPct,
+				policy.maxSingleVaultPct,
+			),
+		]),
+	);
+
+	const capped = allocations.map((allocation) => ({
+		address: allocation.address,
+		targetPct: roundPct(
+			Math.min(
+				allocation.targetPct,
+				maxByVault.get(allocation.address) ?? policy.maxSingleVaultPct,
+			),
+		),
+	}));
+
+	let sum = capped.reduce((acc, item) => acc + item.targetPct, 0);
+	if (sum <= deployablePct + EPSILON_TOTAL_PCT) {
+		return capped;
+	}
+
+	const overflow = sum - deployablePct;
+	const sorted = [...capped].sort((a, b) => b.targetPct - a.targetPct);
+	const first = sorted[0];
+	if (!first) {
+		return capped;
+	}
+
+	const idx = capped.findIndex((item) => item.address === first.address);
+	if (idx >= 0) {
+		const current = capped[idx];
+		if (!current) {
+			return capped;
+		}
+		capped[idx] = {
+			...current,
+			targetPct: roundPct(Math.max(0, current.targetPct - overflow)),
+		};
+	}
+
+	sum = capped.reduce((acc, item) => acc + item.targetPct, 0);
+	const remainder = deployablePct - sum;
+	if (Math.abs(remainder) > EPSILON_TOTAL_PCT && capped.length > 0) {
+		const current = capped[0];
+		if (!current) {
+			return capped;
+		}
+		capped[0] = {
+			...current,
+			targetPct: roundPct(current.targetPct + remainder),
+		};
+	}
+
+	return capped;
 }
