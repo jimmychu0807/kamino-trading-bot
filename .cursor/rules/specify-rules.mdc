@@ -4,5 +4,10 @@ alwaysApply: true
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read the current plan:
+
+**Plan**: `specs/001-vault-yield-rebalance/plan.md`
+
+**Stack**: Bun + TypeScript; `@solana/kit` ^2.3; `@kamino-finance/klend-sdk` ^7.3;
+Zod config; Drizzle + SQLite; `Bun.cron` scheduler. See also `research.md`, `data-model.md`, `quickstart.md`.
 <!-- SPECKIT END -->
