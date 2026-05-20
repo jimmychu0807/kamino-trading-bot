@@ -4,24 +4,31 @@
 	"type": "module",
 	"scripts": {
 		"start": "bun run src/index.ts",
+		"cli": "bun run src/cli.ts",
 		"test": "bun test tests/unit",
 		"test:integration": "RUN_INTEGRATION_TESTS=true bun test",
 		"compile": "bunx --bun tsc --noEmit",
 		"check": "bunx biome check",
-		"format": "bunx biome check --write"
+		"format": "bunx biome check --write",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "bun run src/db/migrate.ts"
 	},
 	"dependencies": {
 		"@kamino-finance/klend-sdk": "^7.3.22",
-		"@solana/kit": "^2.3.0"
+		"@solana/kit": "^2.3.0",
+		"drizzle-orm": "^0.39.0",
+		"zod": "^3.24.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.15",
-		"@types/bun": "latest"
+		"@types/bun": "latest",
+		"drizzle-kit": "^0.30.0"
 	},
 	"peerDependencies": {
 		"typescript": "^5"
 	},
 	"overrides": {
-		"@kamino-finance/farms-sdk": "3.2.24"
+		"@kamino-finance/farms-sdk": "3.2.24",
+		"@solana/kit": "2.3.0"
 	}
 }

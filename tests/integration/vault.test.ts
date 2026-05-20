@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { loadRpcUrl } from "../../src/config.ts";
-import { DEFAULT_PROD_USER, VAULT_ADDRESSES } from "../../src/constants.ts";
-import { fetchVaultSummary } from "../../src/vault.ts";
+import { createRpcClients } from "../../src/chain/rpc.ts";
+import { loadRpcUrl } from "../../src/config/load.ts";
+import { EXAMPLE_VAULT_ADDRESSES } from "../../src/constants.ts";
+import { fetchVaultSummary } from "../../src/kamino/vault.ts";
 
 const runIntegration = Bun.env.RUN_INTEGRATION_TESTS === "true";
+const integrationUser = Bun.env.INTEGRATION_USER_ADDRESS?.trim();
 
 describe.skipIf(!runIntegration)("Kamino vault (integration)", () => {
 	let rpcUrl: string;
@@ -13,16 +15,23 @@ describe.skipIf(!runIntegration)("Kamino vault (integration)", () => {
 		expect(rpcUrl.startsWith("http")).toBe(true);
 	});
 
-	test("fetches vault summary for Allez USDS vault", async () => {
+	test("fetches vault summary for example Allez USDC vault", async () => {
+		if (!integrationUser) {
+			throw new Error(
+				"INTEGRATION_USER_ADDRESS required for vault integration test",
+			);
+		}
+		const clients = createRpcClients(rpcUrl, 15_000);
 		const summary = await fetchVaultSummary(
-			rpcUrl,
-			VAULT_ADDRESSES.allezUsds,
-			DEFAULT_PROD_USER,
+			clients.rpc,
+			EXAMPLE_VAULT_ADDRESSES.allezUsdc,
+			integrationUser,
 		);
 
-		expect(summary.exchangeRate).toMatch(/^\d+$/);
-		expect(summary.shares).toMatch(/^\d+$/);
-		expect(summary.value).toMatch(/^\d+$/);
+		const numericString = /^\d+(\.\d+)?$/;
+		expect(summary.exchangeRate).toMatch(numericString);
+		expect(summary.shares).toMatch(numericString);
+		expect(summary.value).toMatch(numericString);
 		expect(summary.apys).toBeDefined();
 		expect(summary.holdings).toBeDefined();
 	});

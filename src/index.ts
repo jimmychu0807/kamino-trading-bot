@@ -1,32 +1,37 @@
-import { createKeyPairSignerFromBytes, getBase58Codec } from "@solana/kit";
-import { loadConfig } from "./config.ts";
-import { DEFAULT_PROD_USER, VAULT_ADDRESSES } from "./constants.ts";
-import { fetchVaultAllocations, fetchVaultSummary } from "./vault.ts";
+import { createRpcClients } from "./chain/rpc.ts";
+import { createSignerFromPrivateKey } from "./chain/signer.ts";
+import { loadConfigFromEnv } from "./config/load.ts";
+import { EXAMPLE_VAULT_ADDRESSES } from "./constants.ts";
+import { fetchVaultAllocations, fetchVaultSummary } from "./kamino/vault.ts";
 
 async function main() {
-	const config = loadConfig();
-	const keypairBytes = getBase58Codec().encode(config.privateKey);
-	const signer = await createKeyPairSignerFromBytes(keypairBytes);
+	const config = loadConfigFromEnv();
+	const clients = createRpcClients(config.solanaRpc, config.rpcTimeoutMs);
+	const signer = await createSignerFromPrivateKey(config.privateKey);
+
+	const vaultAddress =
+		config.vaults[0]?.address ?? EXAMPLE_VAULT_ADDRESSES.steakhouseUsdc;
 
 	const summary = await fetchVaultSummary(
-		config.solanaRpc,
-		VAULT_ADDRESSES.allezUsds,
-		config.prodAddress,
+		clients.rpc,
+		vaultAddress,
+		signer.address,
 	);
 
 	console.log(summary);
 
-	const alloc = await fetchVaultAllocations(
-		config.solanaRpc,
-		VAULT_ADDRESSES.allezUsds,
-	);
+	const alloc = await fetchVaultAllocations(clients.rpc, vaultAddress);
 
 	console.log("--- Allocations ---");
 	for (const [reserveAddress, overview] of alloc) {
 		console.log(`Reserve: ${reserveAddress}: overview:`, overview);
 	}
 
-	console.log({ signer: signer.address, defaultProdUser: DEFAULT_PROD_USER });
+	console.log({
+		signer: signer.address,
+		previewMode: config.previewMode,
+		vaultCount: config.vaults.length,
+	});
 }
 
 try {
