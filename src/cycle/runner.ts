@@ -15,7 +15,7 @@ import {
 } from "../db/decision.ts";
 import { writePolicySnapshot } from "../db/policy.ts";
 import { decisionLogs } from "../db/schema.ts";
-import { fetchVaultMetricsSnapshots } from "../kamino/metrics.ts";
+import { fetchVaultMetricsSnapshots, findApySpikeSnapshots } from "../kamino/metrics.ts";
 import {
 	type ReconcileContext,
 	reconcilePositions,
@@ -333,6 +333,7 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 			snapshots = await fetchMetrics(clients, vaultAddresses, {
 				now,
 				maxAgeMs: config.metricsMaxAgeMs,
+				apySpikeGuardMultiple: config.apySpikeGuardMultiple,
 			});
 		} catch (error) {
 			const reason = dependencyReasonFromError(error);
@@ -366,6 +367,25 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 				alertEvent: "metrics_stale",
 				message: `Stale metrics for vaults: ${staleVaults.map((s) => s.vaultAddress).join(", ")}`,
 				details: { staleVaults: staleVaults.map((s) => s.vaultAddress) },
+			});
+		}
+
+		const apySpikeVaults = findApySpikeSnapshots(snapshots);
+		if (apySpikeVaults.length > 0) {
+			return returnDependencyHold(ctx, {
+				cycleId,
+				now,
+				position,
+				reason: "apy_spike",
+				alertEvent: "metrics_stale",
+				message: `Anomalous APY spike for vaults: ${apySpikeVaults.map((s) => s.vaultAddress).join(", ")}`,
+				details: {
+					apySpikeVaults: apySpikeVaults.map((s) => ({
+						vaultAddress: s.vaultAddress,
+						netApy: s.netApy,
+						guardMultiple: config.apySpikeGuardMultiple,
+					})),
+				},
 			});
 		}
 

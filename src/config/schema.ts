@@ -131,6 +131,7 @@ export const operatorConfigSchema = z
 		cycleTimeoutMs: z.number().int().min(30_000).default(180_000),
 		legMaxAttempts: z.number().int().min(1).max(10).default(3),
 		consecutiveFailureThreshold: z.number().int().min(1).default(3),
+		apySpikeGuardMultiple: z.number().min(1).default(3),
 		cronExpression: z.string().min(1).default("0 * * * *"),
 		databaseUrl: z.string().min(1).default("./data/bot.sqlite"),
 	})

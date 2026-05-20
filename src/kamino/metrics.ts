@@ -6,11 +6,45 @@ import type { ReserveWeight, VaultMetricsSnapshot } from "../strategy/types.ts";
 import { createVaultClient } from "./vault.ts";
 
 const APY_HISTORY_MAX = 24;
+const APY_SPIKE_MIN_HISTORY = 2;
 const apyHistoryByVault = new Map<string, number[]>();
 
 /** Reset in-memory APY history (tests). */
 export function clearApyHistory(): void {
 	apyHistoryByVault.clear();
+}
+
+/** Trailing mean of recorded APY samples (excludes the reading about to be recorded). */
+export function getTrailingApyAverage(vaultAddress: string): number | null {
+	const history = apyHistoryByVault.get(vaultAddress);
+	if (!history || history.length < APY_SPIKE_MIN_HISTORY) return null;
+	return history.reduce((s, v) => s + v, 0) / history.length;
+}
+
+/** True when net APY exceeds `multiple` × trailing average (spec edge case). */
+export function isApySpikeAnomaly(
+	netApy: number,
+	trailingAverage: number | null,
+	multiple: number,
+): boolean {
+	if (trailingAverage === null || trailingAverage <= 0 || multiple <= 0) return false;
+	return netApy > multiple * trailingAverage;
+}
+
+export function markSnapshotTradingValidity(
+	snapshot: VaultMetricsSnapshot,
+	options: { apySpikeGuardMultiple: number },
+): VaultMetricsSnapshot {
+	const trailing = getTrailingApyAverage(snapshot.vaultAddress);
+	const apyAnomaly = isApySpikeAnomaly(snapshot.netApy, trailing, options.apySpikeGuardMultiple);
+	return {
+		...snapshot,
+		validForTrading: snapshot.fresh && !apyAnomaly,
+	};
+}
+
+export function findApySpikeSnapshots(snapshots: VaultMetricsSnapshot[]): VaultMetricsSnapshot[] {
+	return snapshots.filter((s) => !s.validForTrading && s.fresh);
 }
 
 export function isMetricsFresh(
@@ -27,9 +61,11 @@ export function markSnapshotFreshness(
 	maxAgeMs: number,
 	now: Date = new Date(),
 ): VaultMetricsSnapshot {
+	const fresh = isMetricsFresh(snapshot, maxAgeMs, now);
 	return {
 		...snapshot,
-		fresh: isMetricsFresh(snapshot, maxAgeMs, now),
+		fresh,
+		validForTrading: fresh ? snapshot.validForTrading : false,
 	};
 }
 
@@ -77,17 +113,17 @@ export function utilizationFromHoldings(invested: Decimal, totalAum: Decimal): n
 }
 
 export function normalizeVaultMetricsSnapshot(
-	raw: Omit<VaultMetricsSnapshot, "fresh">,
+	raw: Omit<VaultMetricsSnapshot, "fresh" | "validForTrading">,
 	maxAgeMs: number,
 	now: Date = new Date(),
 ): VaultMetricsSnapshot {
-	return markSnapshotFreshness({ ...raw, fresh: false }, maxAgeMs, now);
+	return markSnapshotFreshness({ ...raw, fresh: false, validForTrading: true }, maxAgeMs, now);
 }
 
 export async function fetchVaultMetricsSnapshot(
 	clients: RpcClients,
 	vaultAddress: string,
-	options?: { now?: Date; maxAgeMs?: number },
+	options?: { now?: Date; maxAgeMs?: number; apySpikeGuardMultiple?: number },
 ): Promise<VaultMetricsSnapshot> {
 	const now = options?.now ?? new Date();
 	const vault = createVaultClient(clients.rpc, vaultAddress);
@@ -105,9 +141,13 @@ export async function fetchVaultMetricsSnapshot(
 	const tvlUsd = holdings.totalAUMIncludingFees.toNumber();
 	const utilization = utilizationFromHoldings(holdings.invested, holdings.totalAUMIncludingFees);
 	const reserveWeights = reserveWeightsFromAllocations(allocations);
+	const trailingApy = getTrailingApyAverage(vaultAddress);
+	const apySpike =
+		options?.apySpikeGuardMultiple !== undefined &&
+		isApySpikeAnomaly(netApy, trailingApy, options.apySpikeGuardMultiple);
 	const yieldVolatility = computeYieldVolatility(vaultAddress, netApy);
 
-	const snapshot: VaultMetricsSnapshot = {
+	let result: VaultMetricsSnapshot = {
 		vaultAddress,
 		capturedAt: now,
 		netApy,
@@ -117,19 +157,19 @@ export async function fetchVaultMetricsSnapshot(
 		yieldVolatility,
 		source: "chain",
 		fresh: true,
+		validForTrading: !apySpike,
 	};
 
 	if (options?.maxAgeMs !== undefined) {
-		return markSnapshotFreshness(snapshot, options.maxAgeMs, now);
+		result = markSnapshotFreshness(result, options.maxAgeMs, now);
 	}
-
-	return snapshot;
+	return result;
 }
 
 export async function fetchVaultMetricsSnapshots(
 	clients: RpcClients,
 	vaultAddresses: string[],
-	options?: { now?: Date; maxAgeMs?: number },
+	options?: { now?: Date; maxAgeMs?: number; apySpikeGuardMultiple?: number },
 ): Promise<VaultMetricsSnapshot[]> {
 	return Promise.all(
 		vaultAddresses.map((vaultAddress) => fetchVaultMetricsSnapshot(clients, vaultAddress, options)),
@@ -150,6 +190,7 @@ export function buildMetricsSnapshot(
 		yieldVolatility: input.yieldVolatility ?? 0,
 		source: input.source ?? "api",
 		fresh: input.fresh ?? true,
+		validForTrading: input.validForTrading ?? true,
 		vaultAddress: input.vaultAddress,
 	};
 }

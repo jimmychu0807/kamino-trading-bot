@@ -56,6 +56,7 @@ export const vaultMetricsSnapshotPayloadSchema = z.object({
 	yieldVolatility: z.number(),
 	source: z.enum(["chain", "api"]),
 	fresh: z.boolean(),
+	validForTrading: z.boolean().default(true),
 });
 
 export type VaultMetricsSnapshotPayload = z.infer<typeof vaultMetricsSnapshotPayloadSchema>;
@@ -115,6 +116,7 @@ export function historicalPointToSnapshot(
 		yieldVolatility: options?.yieldVolatility ?? 0,
 		source: "api",
 		fresh: true,
+		validForTrading: true,
 	};
 }
 
@@ -129,6 +131,7 @@ export function snapshotToPayload(snapshot: VaultMetricsSnapshot): VaultMetricsS
 		yieldVolatility: snapshot.yieldVolatility,
 		source: snapshot.source,
 		fresh: snapshot.fresh,
+		validForTrading: snapshot.validForTrading,
 	});
 }
 
@@ -136,6 +139,7 @@ export function payloadToSnapshot(payload: VaultMetricsSnapshotPayload): VaultMe
 	return {
 		...payload,
 		capturedAt: new Date(payload.capturedAt),
+		validForTrading: payload.validForTrading ?? true,
 	};
 }
 

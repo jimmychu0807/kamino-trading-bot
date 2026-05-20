@@ -1,3 +1,4 @@
+import "./setup.ts";
 import { describe, expect, test } from "bun:test";
 import { createRpcClients } from "../../src/chain/rpc.ts";
 import { createSignerFromPrivateKey } from "../../src/chain/signer.ts";

@@ -113,6 +113,9 @@ export function loadConfigFromEnv(
 		cycleTimeoutMs: parsePositiveInt(env.CYCLE_TIMEOUT_MS, 180_000),
 		legMaxAttempts: parsePositiveInt(env.LEG_MAX_ATTEMPTS, 3),
 		consecutiveFailureThreshold: parsePositiveInt(env.CONSECUTIVE_FAILURE_THRESHOLD, 3),
+		apySpikeGuardMultiple: env.APY_SPIKE_GUARD_MULTIPLE?.trim()
+			? Number(env.APY_SPIKE_GUARD_MULTIPLE)
+			: 3,
 		cronExpression: env.CRON_EXPRESSION?.trim() || "0 * * * *",
 		databaseUrl: env.DATABASE_URL?.trim() || "./data/bot.sqlite",
 	});

@@ -215,12 +215,12 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 **Purpose**: Documentation, quality gates, and quickstart validation
 
-- [ ] T065 [P] Update `README.md` with env vars, cron daemon, DB migrate, preview/live, ack-hold, integration test flags per `quickstart.md`
-- [ ] T066 Remove deprecated `src/config.ts` after all imports use `src/config/load.ts`
-- [ ] T067 Run `bun pm ls | grep @solana/kit` and document single 2.3.x tree in `README.md`
-- [ ] T068 Run full quality gate: `bun run compile`, `bun run check`, `bun test`, `RUN_INTEGRATION_TESTS=true bun test` (when RPC configured)
-- [ ] T069 Validate operator quickstart flow end-to-end per `specs/001-vault-yield-rebalance/quickstart.md`
-- [ ] T070 [P] Add anomaly guard: APY spike vs trailing average threshold in `src/kamino/metrics.ts` (edge case from spec)
+- [X] T065 [P] Update `README.md` with env vars, cron daemon, DB migrate, preview/live, ack-hold, integration test flags per `quickstart.md`
+- [X] T066 Remove deprecated `src/config.ts` after all imports use `src/config/load.ts`
+- [X] T067 Run `bun pm ls | grep @solana/kit` and document single 2.3.x tree in `README.md`
+- [X] T068 Run full quality gate: `bun run compile`, `bun run check`, `bun test`, `RUN_INTEGRATION_TESTS=true bun test` (when RPC configured)
+- [X] T069 Validate operator quickstart flow end-to-end per `specs/001-vault-yield-rebalance/quickstart.md`
+- [X] T070 [P] Add anomaly guard: APY spike vs trailing average threshold in `src/kamino/metrics.ts` (edge case from spec)
 
 ---
 
