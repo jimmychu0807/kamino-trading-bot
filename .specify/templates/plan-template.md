@@ -36,9 +36,10 @@ Verify against `.specify/memory/constitution.md`:
 - [ ] Logic in testable `src/` modules (not only entrypoint)
 - [ ] Unit tests planned in `tests/unit/`
 - [ ] Integration tests planned in `tests/integration/` (document skip env if RPC-gated)
+- [ ] Post-change validation includes `bun run check` (no warnings), `bun run test`, and `bun run test:integration`
 - [ ] `README.md` updates included when run/test/env instructions change
 - [ ] No secrets in repo; `.env` for keys and RPC
-- [ ] Bun toolchain only (`bun test`, `bun run compile`, `bun run check`)
+- [ ] Bun toolchain only (`bun run compile`, `bun run check`, `bun run test`, `bun run test:integration`)
 
 Document any violations in Complexity Tracking below.
 

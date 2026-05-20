@@ -10,7 +10,8 @@ description: "Task list template for feature implementation"
 
 **Tests**: Per `.specify/memory/constitution.md`, unit tests (`tests/unit/`) and integration tests
 (`tests/integration/`) are REQUIRED for all `src/` changes unless a Constitution Check exception
-is documented in plan.md Complexity Tracking.
+is documented in plan.md Complexity Tracking. Any implementation that changes code MUST include
+validation tasks for `bun run check` (no warnings), `bun run test`, and `bun run test:integration`.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
