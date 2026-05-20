@@ -41,18 +41,18 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 **⚠️ CRITICAL**: No user story work until this phase is complete
 
-- [ ] T008 Implement Zod `OperatorConfig`, `VaultConfig`, `RebalancePolicy`, risk profile presets, `driftTriggerEnabled`, and `driftPollIntervalMs` in `src/config/schema.ts` (mirror `contracts/config.schema.json`; `previewMode` defaults to `true` when `PREVIEW_MODE` unset)
-- [ ] T009 Implement env → config loader in `src/config/load.ts`; migrate callers off `src/config.ts`; default `previewMode` to `true` if env unset (FR-008)
-- [ ] T010 [P] Unit tests for config schema refinements (exactly 3 vaults, caps, timeouts, preview default true, drift trigger fields) in `tests/unit/config.test.ts`
-- [ ] T011 Define Drizzle tables (`cycles`, `metric_snapshots`, `decision_logs`, `rebalance_actions`, `hold_states`, `policy_snapshots`) in `src/db/schema.ts` per `data-model.md`
-- [ ] T012 Implement SQLite client in `src/db/client.ts` using `bun:sqlite` and `DATABASE_URL`
-- [ ] T013 Implement migration runner in `src/db/migrate.ts` and initial SQL under `drizzle/`
-- [ ] T014 [P] Implement shared Kit RPC factory with per-call timeout wrapper in `src/chain/rpc.ts`
-- [ ] T015 [P] Implement signer from `PRIVATE_KEY` in `src/chain/signer.ts`
-- [ ] T016 Implement transaction send/confirm with per-leg retry (3× exponential backoff) in `src/chain/tx.ts`
-- [ ] T017 Move and extend `src/vault.ts` → `src/kamino/vault.ts` (shared `Rpc`, `KaminoVault` helpers); re-export from `src/vault.ts` for compatibility
-- [ ] T018 [P] Update `src/constants.ts` with example vault addresses only; remove hard-coded production user from runtime path
-- [ ] T019 Add `cycleInFlight` mutex helper in `src/cycle/mutex.ts` for overlapping `Bun.cron` ticks
+- [X] T008 Implement Zod `OperatorConfig`, `VaultConfig`, `RebalancePolicy`, risk profile presets, `driftTriggerEnabled`, and `driftPollIntervalMs` in `src/config/schema.ts` (mirror `contracts/config.schema.json`; `previewMode` defaults to `true` when `PREVIEW_MODE` unset)
+- [X] T009 Implement env → config loader in `src/config/load.ts`; migrate callers off `src/config.ts`; default `previewMode` to `true` if env unset (FR-008)
+- [X] T010 [P] Unit tests for config schema refinements (exactly 3 vaults, caps, timeouts, preview default true, drift trigger fields) in `tests/unit/config.test.ts`
+- [X] T011 Define Drizzle tables (`cycles`, `metric_snapshots`, `decision_logs`, `rebalance_actions`, `hold_states`, `policy_snapshots`) in `src/db/schema.ts` per `data-model.md`
+- [X] T012 Implement SQLite client in `src/db/client.ts` using `bun:sqlite` and `DATABASE_URL`
+- [X] T013 Implement migration runner in `src/db/migrate.ts` and initial SQL under `drizzle/`
+- [X] T014 [P] Implement shared Kit RPC factory with per-call timeout wrapper in `src/chain/rpc.ts`
+- [X] T015 [P] Implement signer from `PRIVATE_KEY` in `src/chain/signer.ts`
+- [X] T016 Implement transaction send/confirm with per-leg retry (3× exponential backoff) in `src/chain/tx.ts`
+- [X] T017 Move and extend `src/vault.ts` → `src/kamino/vault.ts` (shared `Rpc`, `KaminoVault` helpers); re-export from `src/vault.ts` for compatibility
+- [X] T018 [P] Update `src/constants.ts` with example vault addresses only; remove hard-coded production user from runtime path
+- [X] T019 Add `cycleInFlight` mutex helper in `src/cycle/mutex.ts` for overlapping `Bun.cron` ticks
 
 **Checkpoint**: Foundation ready — user story implementation can begin
 
