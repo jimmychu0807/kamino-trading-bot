@@ -36,7 +36,7 @@ As the bot operator, I want deposited capital automatically spread across three 
 
 1. **Given** capital is concentrated in one vault and two others offer higher risk-adjusted yield, **When** a rebalance cycle runs, **Then** the bot moves funds toward the target allocation within policy limits.
 2. **Given** all three vaults offer similar risk-adjusted yield, **When** a rebalance cycle runs, **Then** the bot does not trade (no unnecessary churn).
-3. **Given** a rebalance is warranted, **When** execution completes successfully, **Then** post-trade allocations match the target within a configurable tolerance band (e.g., ±2% per vault).
+3. **Given** a rebalance is warranted, **When** execution completes successfully, **Then** post-trade allocations match the target within the configurable tolerance band `policy.driftBandPct` (default 2% in balanced profile).
 
 ---
 
@@ -122,14 +122,14 @@ As the bot operator, I want to replay past vault metrics through the allocation 
 
 ### Edge Cases
 
-- What happens when one vault temporarily blocks withdrawals (liquidity cap, pause, or program constraint)?
+- **Vault withdrawal blocked** (liquidity cap, pause, or program constraint): treat as dependency failure for that cycle, abort remaining execution in that cycle, emit `vault_unavailable`, and enter dependency hold until checks pass.
 - **Partial transaction success** (e.g., withdraw succeeds, deposit fails): the current cycle ends immediately after the failed leg; no same-cycle retries. The next cycle MUST reconcile on-chain wallet and vault positions before planning new moves.
 - **Cycle timeout during execution** (FR-020): same as partial failure—the cycle ends immediately, no further legs run, no same-cycle retries; the next cycle reconciles before planning new moves.
-- What happens when APY data diverges sharply between sources or appears anomalous (spike > configurable multiple of trailing average)?
-- How does the bot behave when wallet balance is below minimum economically viable trade size?
-- What happens when two vaults share overlapping underlying reserves (hidden concentration risk)?
+- **Anomalous APY divergence/spike**: mark the metric snapshot as invalid for trading when APY exceeds `apySpikeGuardMultiple` times trailing average (default 3x, operator-configurable); skip trade and enter dependency hold for that cycle.
+- **Wallet balance below minimum trade size**: if every candidate rebalance leg is below `policy.minTradeSizeBase`, skip trading and log `rebalance_skipped` with `reason=min_trade_size`.
+- **Overlapping reserves across vaults**: apply cross-vault reserve concentration penalty (FR-017) using combined reserve weights to reduce attractiveness for correlated allocations.
 - How does the system respond to sudden TVL collapse or utilization spike in a currently overweight vault?
-- What happens when the operator updates vault list or policy while a cycle is in flight?
+- **Policy or vault-list changes in-flight**: freeze an immutable policy snapshot at cycle start; apply updates only from the next cycle onward; in-flight cycle logs `policyHash` used for determinism/audit.
 
 ## Requirements *(mandatory)*
 
@@ -138,24 +138,25 @@ As the bot operator, I want to replay past vault metrics through the allocation 
 - **FR-001**: System MUST monitor exactly three configurable Kamino Earn vaults per deployment instance.
 - **FR-002**: System MUST ingest, at minimum, net yield (APY or equivalent), total value locked, utilization, and share of capital per underlying reserve for each vault.
 - **FR-003**: System MUST compute a composite risk score per vault using operator-configurable weights across factors including liquidity depth (TVL), utilization stress, reserve concentration, and recent yield volatility.
-- **FR-004**: System MUST compute a risk-adjusted attractiveness score combining expected return and risk score for ranking vaults.
-- **FR-005**: System MUST derive target allocation percentages across the three vaults that sum to 100% of deployable capital subject to per-vault min/max caps.
-- **FR-006**: System MUST compare current on-chain allocation to target allocation and determine whether rebalancing is warranted.
+- **FR-004**: System MUST compute a risk-adjusted attractiveness score for ranking vaults as `attractiveness = expectedNetApy * compositeRiskScore` (higher is better), where both terms are from the same metrics snapshot timestamp.
+- **FR-005**: System MUST derive target allocation percentages across the three vaults that sum to `100 - cashBufferPct` of deployable capital, subject to per-vault min/max caps and profile constraints.
+- **FR-006**: System MUST compare current on-chain allocation to target allocation and determine whether rebalancing is warranted using measurable criteria: rebalance when `maxAbsDriftPct > policy.driftBandPct` AND projected improvement is `>= policy.minImprovementBps`, unless critical-risk exit override applies.
 - **FR-007**: System MUST execute withdraw-and-deposit sequences to move capital toward targets when warranted and not in preview mode; within a single cycle, execution MUST follow withdraw-then-deposit batch order—all planned withdrawals from overweight vaults to the operator wallet complete (or the withdrawal phase ends due to failure, partial success, or timeout) before any deposits to underweight vaults begin.
 - **FR-008**: System MUST support preview mode where all decisions are logged but no capital movement occurs. When `PREVIEW_MODE` is unset, the loader MUST default to preview enabled (`true`); live execution requires an explicit operator opt-in (`PREVIEW_MODE=false`).
-- **FR-009**: System MUST enforce operator-configurable policies: minimum improvement to rebalance, maximum allocation per vault, minimum trade size, rebalance cooldown, and critical risk exit override.
-- **FR-010**: System MUST record each cycle with timestamp, inputs (metrics snapshot), scores, target allocation, action taken (trade / skip / hold), and outcome.
+- **FR-009**: System MUST enforce operator-configurable policies: minimum improvement to rebalance, maximum allocation per vault, minimum trade size, rebalance cooldown, within-band skip (`driftBandPct`), and critical risk exit override.
+- **FR-010**: System MUST record each cycle with a complete immutable decision log containing at minimum: `cycleId`, `timestamp`, `policyHash`, `inputs` (metrics snapshot + freshness), `scores`, `targets`, `actions` (planned/executed), `actionTaken` (`trade|skip|hold|timeout|preview`), `outcome`, and human-readable `rationale`.
 - **FR-011**: System MUST reconcile actual wallet and vault positions before planning trades after any failed, partial, or timed-out execution; partial success and cycle timeout MUST NOT trigger same-cycle retries—the affected cycle ends and reconciliation runs at the start of the next cycle.
 - **FR-012**: System MUST skip trading when data freshness, connectivity, or vault availability checks fail, and record the reason; metrics older than 15 minutes (default, operator-configurable) MUST be treated as stale; RPC and metric API calls exceeding 15 seconds (default, operator-configurable) MUST be treated as connectivity failures.
 - **FR-013**: System MUST support scheduled periodic evaluation (default: hourly via `Bun.cron`) and optional threshold-triggered evaluation: when `driftTriggerEnabled` is true, a background poll (default interval 5 minutes, operator-configurable) reconciles on-chain positions and invokes a full rebalance cycle when any vault’s absolute allocation drift exceeds `policy.driftBandPct` (same band used for within-band skip in FR-009). Drift-triggered cycles MUST respect the same `cycleInFlight` mutex, hold states, and guardrails as cron-triggered cycles. When `driftTriggerEnabled` is false (default), drift is evaluated only on scheduled cron ticks.
-- **FR-014**: System MUST allow operators to define risk profile presets (e.g., conservative, balanced, aggressive) that map to weight and cap presets.
-- **FR-015**: System MUST emit operator-visible alerts on hold states, repeated failures, and critical risk exits.
+- **FR-014**: System MUST allow operators to define risk profile presets (`conservative`, `balanced`, `aggressive`) that map to concrete defaults for risk weights, `maxSingleVaultPct`, `cashBufferPct`, `criticalRiskFloor`, `minImprovementBps`, `cooldownMs`, and `driftBandPct`; defaults MUST be documented and overrideable.
+- **FR-015**: System MUST emit operator-visible alerts with structured payload `{event,timestamp,cycleId,message,details}` for at least: `metrics_stale`, `rpc_timeout`, `vault_unavailable`, `dependency_hold_entered`, `dependency_hold_cleared`, `execution_hold_entered`, `critical_risk_exit`, `cycle_timeout`, `tx_leg_failed`, `rebalance_executed`, and `rebalance_skipped`.
 - **FR-019**: System MUST support two hold types: **dependency hold** (stale metrics, connectivity failure, vault unavailable)—skip live trading until checks pass and auto-resume on recovery without operator acknowledgment; **execution hold**—enter after three consecutive cycles each ending with at least one failed transaction (configurable threshold, default 3), pause live execution, and resume only after operator acknowledgment.
 - **FR-020**: System MUST enforce a maximum wall-clock duration of 3 minutes per rebalance cycle (default, operator-configurable); if exceeded, end the cycle immediately per FR-011 (no further legs, no same-cycle retries), skip remaining execution, and record a cycle-timeout outcome in the decision log.
 - **FR-022**: System MUST retry fully failed transactions (no on-chain confirmation) up to 3 times with exponential backoff per leg (default, configurable) before marking the leg failed; retries MUST NOT apply after partial success (e.g., confirmed withdraw with failed deposit) or after cycle timeout abort.
+- **FR-023**: After any agent-driven code change, the delivery workflow MUST run `bun run format`, then `bun run check` with zero warnings/errors, then `bun run test`, then `bun run test:integration`; all four commands MUST pass before merge or handoff.
 - **FR-021**: System MUST apply a 15-second timeout (default, operator-configurable) to each Solana RPC and Kamino metric API request; timed-out requests MUST NOT block the cycle beyond the timeout and MUST be logged with the failing dependency identifier.
 - **FR-016**: System SHOULD support historical replay (backtest) of allocation decisions using stored or fetched metric history without submitting live trades.
-- **FR-017**: System SHOULD detect correlated exposure when multiple vaults allocate heavily to the same underlying reserve and apply a concentration penalty to composite risk.
+- **FR-017**: System SHOULD detect correlated exposure when multiple vaults allocate heavily to the same underlying reserve and apply a concentration penalty to composite risk; default penalty proxy is derived from combined reserve overlap across managed vaults and MUST be testable with fixture snapshots.
 - **FR-018**: System SHOULD maintain a small unallocated buffer (configurable, default 0–5%) to absorb rounding and reduce failed full redeployment.
 
 ### Key Entities
@@ -171,17 +172,25 @@ As the bot operator, I want to replay past vault metrics through the allocation 
 - **Decision Log**: Immutable audit record for a cycle including rationale and outcomes.
 - **Operator Wallet**: Funded account whose vault positions the bot manages.
 
+### Risk Profile Preset Defaults
+
+| Profile | maxSingleVaultPct | cashBufferPct | criticalRiskFloor | minImprovementBps | cooldownMs | driftBandPct |
+|---------|-------------------:|--------------:|------------------:|------------------:|-----------:|-------------:|
+| conservative | 40 | 5 | 0.25 | 35 | 21,600,000 (6h) | 2 |
+| balanced | 50 | 3 | 0.20 | 25 | 21,600,000 (6h) | 2 |
+| aggressive | 60 | 0 | 0.15 | 15 | 14,400,000 (4h) | 3 |
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: Over a 30-day observation window with live or paper-tracked metrics, risk-adjusted portfolio yield (return minus risk-penalty proxy) meets or exceeds equal-weight allocation across the same three vaults by at least 5% relative improvement.
 - **SC-002**: In preview mode, 100% of cycles produce a complete decision log (inputs, scores, targets, action) parseable without manual chain inspection.
-- **SC-003**: When no vault offers at least the configured minimum improvement over current allocation, the bot skips trading in at least 90% of cycles (measuring churn avoidance under stable conditions).
-- **SC-004**: After simulated or injected partial-failure scenarios, the bot reaches a consistent known position state within one subsequent cycle without duplicate conflicting trades.
+- **SC-003**: When no vault offers at least the configured minimum improvement over current allocation, the bot skips trading in at least 90% of cycles under **stable conditions** defined as: no stale metrics, no dependency hold, per-vault APY changes within ±10% relative over the last 24 hourly cycles, and no critical-risk triggers.
+- **SC-004**: After simulated or injected partial-failure scenarios, the bot reaches a **consistent known position state** within one subsequent cycle, meaning reconciled position totals equal on-chain balances/shares within `policy.driftBandPct`, with no duplicate conflicting legs for the same vault and phase.
 - **SC-005**: Critical risk exits (vault risk score below floor) trigger reduction of exposure within one evaluation cycle when metrics are no older than the freshness limit (default 15 minutes) and connectivity is healthy.
 - **SC-006**: Operators can complete initial setup (three vaults, policy, preview run) and review first decision output in under 15 minutes using provided documentation.
-- **SC-007**: Under normal mainnet conditions, at least 95% of rebalance cycles complete (fetch, score, decide, and execute or skip) within the 3-minute cycle budget without timing out.
+- **SC-007**: Under **normal mainnet conditions** (healthy RPC SLA, no major Solana incident, no prolonged Kamino outage), at least 95% of rebalance cycles complete (fetch, score, decide, and execute or skip) within the 3-minute cycle budget without timing out, measured over at least 500 consecutive cycles in a rolling 30-day window.
 
 ## Assumptions
 
