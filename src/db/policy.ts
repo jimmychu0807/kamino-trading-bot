@@ -48,8 +48,8 @@ function stableStringify(value: unknown): string {
 		return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
 	}
 	if (typeof value === "object") {
-		const entries = Object.entries(value as Record<string, unknown>).sort(
-			([a], [b]) => a.localeCompare(b),
+		const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+			a.localeCompare(b),
 		);
 		return `{${entries
 			.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`)

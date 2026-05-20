@@ -1,8 +1,4 @@
-import {
-	type Address,
-	createKeyPairSignerFromBytes,
-	getBase58Codec,
-} from "@solana/kit";
+import { type Address, createKeyPairSignerFromBytes, getBase58Codec } from "@solana/kit";
 import {
 	type OperatorConfig,
 	parseOperatorConfig,
@@ -13,10 +9,7 @@ import {
 
 export type { OperatorConfig, RebalancePolicy, RiskProfile, VaultConfig };
 
-function parseBoolean(
-	value: string | undefined,
-	defaultValue: boolean,
-): boolean {
+function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
 	if (value === undefined || value === "") {
 		return defaultValue;
 	}
@@ -30,10 +23,7 @@ function parseBoolean(
 	throw new Error(`Invalid boolean env value: ${value}`);
 }
 
-function parsePositiveInt(
-	value: string | undefined,
-	defaultValue: number,
-): number {
+function parsePositiveInt(value: string | undefined, defaultValue: number): number {
 	if (value === undefined || value === "") {
 		return defaultValue;
 	}
@@ -47,18 +37,14 @@ function parsePositiveInt(
 function parseVaults(env: Record<string, string | undefined>): VaultConfig[] {
 	const raw = env.VAULTS?.trim();
 	if (!raw) {
-		throw new Error(
-			"VAULTS not defined (expect three comma-separated addresses)",
-		);
+		throw new Error("VAULTS not defined (expect three comma-separated addresses)");
 	}
 	const addresses = raw
 		.split(",")
 		.map((s) => s.trim())
 		.filter(Boolean);
 	if (addresses.length !== 3) {
-		throw new Error(
-			`VAULTS must contain exactly 3 addresses, got ${addresses.length}`,
-		);
+		throw new Error(`VAULTS must contain exactly 3 addresses, got ${addresses.length}`);
 	}
 	return addresses.map((address, i) => ({
 		address,
@@ -126,10 +112,7 @@ export function loadConfigFromEnv(
 		rpcTimeoutMs: parsePositiveInt(env.RPC_TIMEOUT_MS, 15_000),
 		cycleTimeoutMs: parsePositiveInt(env.CYCLE_TIMEOUT_MS, 180_000),
 		legMaxAttempts: parsePositiveInt(env.LEG_MAX_ATTEMPTS, 3),
-		consecutiveFailureThreshold: parsePositiveInt(
-			env.CONSECUTIVE_FAILURE_THRESHOLD,
-			3,
-		),
+		consecutiveFailureThreshold: parsePositiveInt(env.CONSECUTIVE_FAILURE_THRESHOLD, 3),
 		cronExpression: env.CRON_EXPRESSION?.trim() || "0 * * * *",
 		databaseUrl: env.DATABASE_URL?.trim() || "./data/bot.sqlite",
 	});
@@ -138,9 +121,7 @@ export function loadConfigFromEnv(
 /** @deprecated Use `loadConfigFromEnv` — kept for transitional imports. */
 export const loadConfig = loadConfigFromEnv;
 
-export function loadRpcUrl(
-	env: Record<string, string | undefined> = process.env,
-): string {
+export function loadRpcUrl(env: Record<string, string | undefined> = process.env): string {
 	const solanaRpc = env.SOLANA_RPC?.trim() ?? "";
 	if (!solanaRpc) {
 		throw new Error("SOLANA_RPC not defined");
@@ -148,9 +129,7 @@ export function loadRpcUrl(
 	return solanaRpc;
 }
 
-export async function deriveWalletAddress(
-	privateKeyBase58: string,
-): Promise<Address> {
+export async function deriveWalletAddress(privateKeyBase58: string): Promise<Address> {
 	const keypairBytes = getBase58Codec().encode(privateKeyBase58);
 	const signer = await createKeyPairSignerFromBytes(keypairBytes);
 	return signer.address;

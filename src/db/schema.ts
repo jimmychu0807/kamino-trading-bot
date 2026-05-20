@@ -8,9 +8,7 @@ export const cycles = sqliteTable(
 		endedAt: text("ended_at"),
 		status: text("status").notNull(),
 		previewMode: integer("preview_mode", { mode: "boolean" }).notNull(),
-		consecutiveFailureCount: integer("consecutive_failure_count")
-			.notNull()
-			.default(0),
+		consecutiveFailureCount: integer("consecutive_failure_count").notNull().default(0),
 	},
 	(table) => [index("cycles_started_at_idx").on(table.startedAt)],
 );
@@ -25,10 +23,7 @@ export const metricSnapshots = sqliteTable(
 		payloadJson: text("payload_json").notNull(),
 	},
 	(table) => [
-		index("metric_snapshots_vault_captured_idx").on(
-			table.vaultAddress,
-			table.capturedAt,
-		),
+		index("metric_snapshots_vault_captured_idx").on(table.vaultAddress, table.capturedAt),
 	],
 );
 

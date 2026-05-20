@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-	EXAMPLE_VAULT_ADDRESSES,
-	isBase58Address,
-} from "../../src/constants.ts";
+import { EXAMPLE_VAULT_ADDRESSES, isBase58Address } from "../../src/constants.ts";
 
 describe("EXAMPLE_VAULT_ADDRESSES", () => {
 	test("example vault addresses are valid base58", () => {

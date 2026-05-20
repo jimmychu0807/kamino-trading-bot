@@ -141,17 +141,17 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ### Tests for User Story 3
 
-- [ ] T041 [P] [US3] Unit tests for `runCycle` preview path and decision log persistence in `tests/unit/cycle-preview.test.ts`
-- [ ] T042 [P] [US3] Unit tests for reconcile-first ordering after `partial` / `timeout` status in `tests/unit/cycle-reconcile.test.ts`
+- [X] T041 [P] [US3] Unit tests for `runCycle` preview path and decision log persistence in `tests/unit/cycle-preview.test.ts`
+- [X] T042 [P] [US3] Unit tests for reconcile-first ordering after `partial` / `timeout` status in `tests/unit/cycle-reconcile.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T043 [US3] Implement `runCycle(ctx): Promise<CycleResult>` orchestrator per `contracts/cycle-api.md` in `src/cycle/runner.ts`
-- [ ] T044 [US3] Implement preview branch: plan legs, log rationale, skip `send*` (FR-008) in `src/cycle/runner.ts`
-- [ ] T045 [US3] Persist `DecisionLog` (inputs, scores, targets, actions, outcome, rationale) in `src/db/decision.ts`
-- [ ] T046 [US3] Always call `reconcilePositions` at cycle start before planning in `src/cycle/runner.ts`
-- [ ] T047 [US3] Implement one-shot cycle CLI entry in `src/cli.ts` (`bun run src/cli.ts cycle`)
-- [ ] T048 [US3] Refactor `src/index.ts` to load config and invoke single preview/live cycle for manual smoke test
+- [X] T043 [US3] Implement `runCycle(ctx): Promise<CycleResult>` orchestrator per `contracts/cycle-api.md` in `src/cycle/runner.ts`
+- [X] T044 [US3] Implement preview branch: plan legs, log rationale, skip `send*` (FR-008) in `src/cycle/runner.ts`
+- [X] T045 [US3] Persist `DecisionLog` (inputs, scores, targets, actions, outcome, rationale) in `src/db/decision.ts`
+- [X] T046 [US3] Always call `reconcilePositions` at cycle start before planning in `src/cycle/runner.ts`
+- [X] T047 [US3] Implement one-shot cycle CLI entry in `src/cli.ts` (`bun run src/cli.ts cycle`)
+- [X] T048 [US3] Refactor `src/index.ts` to load config and invoke single preview/live cycle for manual smoke test
 
 **Checkpoint**: Preview cycles produce parseable audit logs; reconcile runs every cycle start
 

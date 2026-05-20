@@ -1,37 +1,40 @@
 import { createRpcClients } from "./chain/rpc.ts";
 import { createSignerFromPrivateKey } from "./chain/signer.ts";
 import { loadConfigFromEnv } from "./config/load.ts";
-import { EXAMPLE_VAULT_ADDRESSES } from "./constants.ts";
-import { fetchVaultAllocations, fetchVaultSummary } from "./kamino/vault.ts";
+import { runCycle } from "./cycle/runner.ts";
+import { createDb } from "./db/client.ts";
+import { runMigrations } from "./db/migrate.ts";
 
 async function main() {
 	const config = loadConfigFromEnv();
+	runMigrations(config.databaseUrl);
+	const db = createDb(config.databaseUrl);
 	const clients = createRpcClients(config.solanaRpc, config.rpcTimeoutMs);
 	const signer = await createSignerFromPrivateKey(config.privateKey);
 
-	const vaultAddress =
-		config.vaults[0]?.address ?? EXAMPLE_VAULT_ADDRESSES.steakhouseUsdc;
-
-	const summary = await fetchVaultSummary(
-		clients.rpc,
-		vaultAddress,
-		signer.address,
-	);
-
-	console.log(summary);
-
-	const alloc = await fetchVaultAllocations(clients.rpc, vaultAddress);
-
-	console.log("--- Allocations ---");
-	for (const [reserveAddress, overview] of alloc) {
-		console.log(`Reserve: ${reserveAddress}: overview:`, overview);
-	}
-
-	console.log({
-		signer: signer.address,
-		previewMode: config.previewMode,
-		vaultCount: config.vaults.length,
+	const abort = AbortSignal.timeout(config.cycleTimeoutMs);
+	const result = await runCycle({
+		config,
+		clients,
+		signer,
+		db,
+		now: new Date(),
+		abortSignal: abort,
 	});
+
+	console.log(
+		JSON.stringify(
+			{
+				cycleId: result.cycleId,
+				status: result.status,
+				previewMode: config.previewMode,
+				rationale: result.decisionLog.rationale,
+				plannedLegs: result.actions.length,
+			},
+			null,
+			2,
+		),
+	);
 }
 
 try {

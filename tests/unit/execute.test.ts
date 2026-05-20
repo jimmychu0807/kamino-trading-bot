@@ -69,11 +69,7 @@ describe("rebalance leg planning", () => {
 			},
 		});
 
-		expect(planned.map((leg) => leg.phase)).toEqual([
-			"withdrawal",
-			"deposit",
-			"deposit",
-		]);
+		expect(planned.map((leg) => leg.phase)).toEqual(["withdrawal", "deposit", "deposit"]);
 		expect(planned[0]).toMatchObject({
 			vaultAddress: "v1",
 			kind: "withdraw",

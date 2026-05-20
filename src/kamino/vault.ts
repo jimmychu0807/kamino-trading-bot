@@ -3,27 +3,19 @@ import { type Address, address, createSolanaRpc } from "@solana/kit";
 import type { AppRpc } from "../chain/rpc.ts";
 
 export type VaultSummary = {
-	holdings: ReturnType<
-		Awaited<ReturnType<KaminoVault["getVaultHoldings"]>>["asJSON"]
-	>;
+	holdings: ReturnType<Awaited<ReturnType<KaminoVault["getVaultHoldings"]>>["asJSON"]>;
 	apys: Awaited<ReturnType<KaminoVault["getAPYs"]>>;
 	exchangeRate: string;
 	shares: string;
 	value: string;
 };
 
-export function createVaultClient(
-	rpc: AppRpc,
-	vaultAddress: string | Address,
-): KaminoVault {
+export function createVaultClient(rpc: AppRpc, vaultAddress: string | Address): KaminoVault {
 	return new KaminoVault(rpc, address(vaultAddress));
 }
 
 /** Legacy helper — prefer shared Rpc from `createRpcClients`. */
-export function createVaultClientFromUrl(
-	rpcUrl: string,
-	vaultAddress: string,
-): KaminoVault {
+export function createVaultClientFromUrl(rpcUrl: string, vaultAddress: string): KaminoVault {
 	return createVaultClient(createSolanaRpc(rpcUrl), vaultAddress);
 }
 
@@ -32,8 +24,7 @@ export async function fetchVaultSummary(
 	vaultAddress: string | Address,
 	userAddress: string | Address,
 ): Promise<VaultSummary> {
-	const rpc =
-		typeof rpcOrUrl === "string" ? createSolanaRpc(rpcOrUrl) : rpcOrUrl;
+	const rpc = typeof rpcOrUrl === "string" ? createSolanaRpc(rpcOrUrl) : rpcOrUrl;
 	const vault = createVaultClient(rpc, vaultAddress);
 	const user = address(userAddress);
 
@@ -55,8 +46,7 @@ export async function fetchVaultAllocations(
 	rpcOrUrl: AppRpc | string,
 	vaultAddress: string | Address,
 ) {
-	const rpc =
-		typeof rpcOrUrl === "string" ? createSolanaRpc(rpcOrUrl) : rpcOrUrl;
+	const rpc = typeof rpcOrUrl === "string" ? createSolanaRpc(rpcOrUrl) : rpcOrUrl;
 	const vault = createVaultClient(rpc, vaultAddress);
 	return vault.getVaultAllocations();
 }

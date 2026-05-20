@@ -5,11 +5,7 @@ export const solanaAddressSchema = z
 	.string()
 	.regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, "Invalid Solana address");
 
-export const riskProfileSchema = z.enum([
-	"conservative",
-	"balanced",
-	"aggressive",
-]);
+export const riskProfileSchema = z.enum(["conservative", "balanced", "aggressive"]);
 
 export type RiskProfile = z.infer<typeof riskProfileSchema>;
 
@@ -102,23 +98,21 @@ const rebalancePolicyBaseSchema = z.object({
 	riskWeights: riskWeightsSchema.partial().optional(),
 });
 
-export const rebalancePolicySchema = rebalancePolicyBaseSchema.transform(
-	(raw) => {
-		const preset = RISK_PROFILE_PRESETS[raw.profile];
-		const weights = { ...preset.riskWeights, ...raw.riskWeights };
-		return {
-			profile: raw.profile,
-			minImprovementBps: raw.minImprovementBps ?? preset.minImprovementBps,
-			maxSingleVaultPct: raw.maxSingleVaultPct ?? preset.maxSingleVaultPct,
-			minTradeSizeBase: raw.minTradeSizeBase,
-			cooldownMs: raw.cooldownMs ?? preset.cooldownMs,
-			driftBandPct: raw.driftBandPct ?? preset.driftBandPct,
-			cashBufferPct: raw.cashBufferPct ?? preset.cashBufferPct,
-			criticalRiskFloor: raw.criticalRiskFloor ?? preset.criticalRiskFloor,
-			riskWeights: weights,
-		};
-	},
-);
+export const rebalancePolicySchema = rebalancePolicyBaseSchema.transform((raw) => {
+	const preset = RISK_PROFILE_PRESETS[raw.profile];
+	const weights = { ...preset.riskWeights, ...raw.riskWeights };
+	return {
+		profile: raw.profile,
+		minImprovementBps: raw.minImprovementBps ?? preset.minImprovementBps,
+		maxSingleVaultPct: raw.maxSingleVaultPct ?? preset.maxSingleVaultPct,
+		minTradeSizeBase: raw.minTradeSizeBase,
+		cooldownMs: raw.cooldownMs ?? preset.cooldownMs,
+		driftBandPct: raw.driftBandPct ?? preset.driftBandPct,
+		cashBufferPct: raw.cashBufferPct ?? preset.cashBufferPct,
+		criticalRiskFloor: raw.criticalRiskFloor ?? preset.criticalRiskFloor,
+		riskWeights: weights,
+	};
+});
 
 export type RebalancePolicy = z.infer<typeof rebalancePolicySchema>;
 

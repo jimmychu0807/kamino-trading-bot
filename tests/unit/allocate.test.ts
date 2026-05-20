@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-	parseOperatorConfig,
-	RISK_PROFILE_PRESETS,
-} from "../../src/config/schema.ts";
+import { parseOperatorConfig, RISK_PROFILE_PRESETS } from "../../src/config/schema.ts";
 import { buildMetricsSnapshot } from "../../src/kamino/metrics.ts";
 import {
 	allocationParamsFromPolicy,
@@ -24,9 +21,7 @@ function expectDefined<T>(value: T | undefined, message: string): T {
 	return value;
 }
 
-function makeConfig(
-	profile: "conservative" | "balanced" | "aggressive" = "balanced",
-) {
+function makeConfig(profile: "conservative" | "balanced" | "aggressive" = "balanced") {
 	return parseOperatorConfig({
 		solanaRpc: "https://rpc.example.com",
 		privateKey: "5HueCGUQU5b",
@@ -93,9 +88,7 @@ describe("computeTargetAllocations", () => {
 		);
 
 		for (const t of targets) {
-			expect(t.targetPct).toBeLessThanOrEqual(
-				cfg.policy.maxSingleVaultPct + 0.01,
-			);
+			expect(t.targetPct).toBeLessThanOrEqual(cfg.policy.maxSingleVaultPct + 0.01);
 		}
 	});
 
@@ -138,9 +131,7 @@ describe("computeTargetAllocations", () => {
 			critical?.vaultAddress,
 			"Expected a critical vault score for this fixture",
 		);
-		const criticalTarget = targets.find(
-			(t) => t.vaultAddress === criticalVaultAddress,
-		);
+		const criticalTarget = targets.find((t) => t.vaultAddress === criticalVaultAddress);
 		const definedCriticalTarget = expectDefined(
 			criticalTarget,
 			"Expected critical target to exist",
@@ -148,9 +139,7 @@ describe("computeTargetAllocations", () => {
 		expect(definedCriticalTarget.attractiveness).toBe(0);
 		expect(definedCriticalTarget.targetPct).toBeLessThan(
 			Math.max(
-				...targets
-					.filter((t) => t.vaultAddress !== criticalVaultAddress)
-					.map((t) => t.targetPct),
+				...targets.filter((t) => t.vaultAddress !== criticalVaultAddress).map((t) => t.targetPct),
 			),
 		);
 	});
@@ -203,9 +192,7 @@ describe("computeTargetAllocations", () => {
 	test("maps risk profile presets via allocationParamsFromPolicy (T026)", () => {
 		const aggressive = makeConfig("aggressive");
 		const params = allocationParamsFromPolicy(aggressive.policy);
-		expect(params.maxSingleVaultPct).toBe(
-			RISK_PROFILE_PRESETS.aggressive.maxSingleVaultPct,
-		);
+		expect(params.maxSingleVaultPct).toBe(RISK_PROFILE_PRESETS.aggressive.maxSingleVaultPct);
 		expect(params.deployablePct).toBe(100 - aggressive.policy.cashBufferPct);
 	});
 

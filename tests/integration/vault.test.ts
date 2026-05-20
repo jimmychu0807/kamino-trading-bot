@@ -17,9 +17,7 @@ describe.skipIf(!runIntegration)("Kamino vault (integration)", () => {
 
 	test("fetches vault summary for example Allez USDC vault", async () => {
 		if (!integrationUser) {
-			throw new Error(
-				"INTEGRATION_USER_ADDRESS required for vault integration test",
-			);
+			throw new Error("INTEGRATION_USER_ADDRESS required for vault integration test");
 		}
 		const clients = createRpcClients(rpcUrl, 15_000);
 		const summary = await fetchVaultSummary(

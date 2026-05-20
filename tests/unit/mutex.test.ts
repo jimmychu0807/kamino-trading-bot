@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-	isCycleInFlight,
-	resetCycleMutex,
-	withCycleMutex,
-} from "../../src/cycle/mutex.ts";
+import { isCycleInFlight, resetCycleMutex, withCycleMutex } from "../../src/cycle/mutex.ts";
 
 describe("cycleInFlight mutex", () => {
 	test("skips overlapping invocations", async () => {

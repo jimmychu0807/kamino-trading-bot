@@ -29,26 +29,15 @@ export type ReconcileContext = {
 	clients: RpcClients;
 	walletAddress: string;
 	vaultAddresses: string[];
-	resolveWalletTokenBalanceBase?: (
-		clients: RpcClients,
-		walletAddress: string,
-	) => Promise<bigint>;
-	createVaultReader?: (
-		clients: RpcClients,
-		vaultAddress: string,
-	) => VaultPositionReader;
+	resolveWalletTokenBalanceBase?: (clients: RpcClients, walletAddress: string) => Promise<bigint>;
+	createVaultReader?: (clients: RpcClients, vaultAddress: string) => VaultPositionReader;
 };
 
-function defaultVaultReader(
-	clients: RpcClients,
-	vaultAddress: string,
-): VaultPositionReader {
+function defaultVaultReader(clients: RpcClients, vaultAddress: string): VaultPositionReader {
 	const vault = createVaultClient(clients.rpc, vaultAddress);
 	return {
 		getUserShares: (walletAddress) =>
-			vault.getUserShares(
-				walletAddress as Parameters<typeof vault.getUserShares>[0],
-			),
+			vault.getUserShares(walletAddress as Parameters<typeof vault.getUserShares>[0]),
 		getExchangeRate: () => vault.getExchangeRate(),
 	};
 }
@@ -80,11 +69,7 @@ function parseExchangeRate(value: unknown): Decimal {
 }
 
 function extractTotalShares(sharesResult: unknown): bigint {
-	if (
-		sharesResult &&
-		typeof sharesResult === "object" &&
-		"totalShares" in sharesResult
-	) {
+	if (sharesResult && typeof sharesResult === "object" && "totalShares" in sharesResult) {
 		return parseBigIntLike(sharesResult.totalShares);
 	}
 	return parseBigIntLike(sharesResult);
@@ -105,17 +90,11 @@ function toCurrentAllocations(position: WalletPosition): CurrentAllocation[] {
 	}));
 }
 
-export async function reconcilePositions(
-	ctx: ReconcileContext,
-): Promise<WalletPosition> {
-	const resolveWalletTokenBalanceBase =
-		ctx.resolveWalletTokenBalanceBase ?? (async () => 0n);
+export async function reconcilePositions(ctx: ReconcileContext): Promise<WalletPosition> {
+	const resolveWalletTokenBalanceBase = ctx.resolveWalletTokenBalanceBase ?? (async () => 0n);
 	const createVaultReader = ctx.createVaultReader ?? defaultVaultReader;
 
-	const tokenBalance = await resolveWalletTokenBalanceBase(
-		ctx.clients,
-		ctx.walletAddress,
-	);
+	const tokenBalance = await resolveWalletTokenBalanceBase(ctx.clients, ctx.walletAddress);
 
 	const vaultShares: VaultSharePosition[] = [];
 	for (const vaultAddress of ctx.vaultAddresses) {
@@ -127,16 +106,11 @@ export async function reconcilePositions(
 
 		const shares = extractTotalShares(sharesResult);
 		const exchangeRate = parseExchangeRate(exchangeRateResult);
-		const valueBase = BigInt(
-			new Decimal(shares.toString()).mul(exchangeRate).floor().toFixed(0),
-		);
+		const valueBase = BigInt(new Decimal(shares.toString()).mul(exchangeRate).floor().toFixed(0));
 		vaultShares.push({ vaultAddress, shares, valueBase });
 	}
 
-	const totalDeployable = vaultShares.reduce(
-		(sum, share) => sum + share.valueBase,
-		tokenBalance,
-	);
+	const totalDeployable = vaultShares.reduce((sum, share) => sum + share.valueBase, tokenBalance);
 
 	return {
 		walletAddress: ctx.walletAddress,

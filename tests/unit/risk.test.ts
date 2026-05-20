@@ -28,21 +28,15 @@ function expectDefined<T>(value: T | undefined, message: string): T {
 
 describe("computeRiskScore", () => {
 	test("liquidity score increases with TVL", () => {
-		expect(computeLiquidityScore(1_000_000)).toBeLessThan(
-			computeLiquidityScore(50_000_000),
-		);
+		expect(computeLiquidityScore(1_000_000)).toBeLessThan(computeLiquidityScore(50_000_000));
 	});
 
 	test("utilization score favors lower utilization", () => {
-		expect(computeUtilizationScore(0.9)).toBeLessThan(
-			computeUtilizationScore(0.3),
-		);
+		expect(computeUtilizationScore(0.9)).toBeLessThan(computeUtilizationScore(0.3));
 	});
 
 	test("concentration score penalizes single-reserve dominance", () => {
-		expect(
-			computeConcentrationScore([{ reserveAddress: "r1", weightPct: 90 }]),
-		).toBeLessThan(
+		expect(computeConcentrationScore([{ reserveAddress: "r1", weightPct: 90 }])).toBeLessThan(
 			computeConcentrationScore([
 				{ reserveAddress: "r1", weightPct: 40 },
 				{ reserveAddress: "r2", weightPct: 60 },
@@ -114,8 +108,6 @@ describe("computeRiskScore", () => {
 		const alone = computeRiskScore(a, policy, { allSnapshots: [a] });
 		const withOverlap = computeRiskScore(a, policy, { allSnapshots: [a, b] });
 
-		expect(withOverlap.concentrationScore).toBeLessThanOrEqual(
-			alone.concentrationScore,
-		);
+		expect(withOverlap.concentrationScore).toBeLessThanOrEqual(alone.concentrationScore);
 	});
 });
