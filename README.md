@@ -1,5 +1,9 @@
 # Kamino Trading Bot
 
+Assignment ask:
+- Write a Typescript bot that reallocates between 3 Kamino lending vaults to maximize yield. Open ended. Decide what extra features you would implement and why.
+- Document your project for other developers to build upon.
+
 TypeScript bot for reading Kamino vault state on Solana mainnet. Uses Bun, `@kamino-finance/klend-sdk`, and `@solana/kit`.
 
 ## Prerequisites
