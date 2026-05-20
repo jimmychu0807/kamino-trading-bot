@@ -66,17 +66,17 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Unit tests for `computeRiskScore` (liquidity, utilization, concentration, volatility weights) in `tests/unit/risk.test.ts`
-- [ ] T021 [P] [US2] Unit tests for `computeTargetAllocations` (sum to 100% − buffer, per-vault caps, critical floor) in `tests/unit/allocate.test.ts`
+- [X] T020 [P] [US2] Unit tests for `computeRiskScore` (liquidity, utilization, concentration, volatility weights) in `tests/unit/risk.test.ts`
+- [X] T021 [P] [US2] Unit tests for `computeTargetAllocations` (sum to 100% − buffer, per-vault caps, critical floor) in `tests/unit/allocate.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T022 [P] [US2] Implement `VaultMetricsSnapshot` fetch/normalize (APY, TVL, utilization, reserve weights, volatility) in `src/kamino/metrics.ts`
-- [ ] T023 [US2] Implement freshness check (`metricsMaxAgeMs`, default 15 min) in `src/kamino/metrics.ts`
-- [ ] T024 [US2] Implement `computeRiskScore` and reserve concentration penalty (FR-017) in `src/strategy/risk.ts`
-- [ ] T025 [US2] Implement risk-adjusted attractiveness and `TargetAllocation` derivation in `src/strategy/allocate.ts`
-- [ ] T026 [US2] Map risk profile presets (`conservative` | `balanced` | `aggressive`) to weights/caps in `src/config/schema.ts` and `src/strategy/allocate.ts`
-- [ ] T027 [P] [US2] Integration test for on-chain metrics read path in `tests/integration/vault-read.test.ts` (extend existing `tests/integration/vault.test.ts`)
+- [X] T022 [P] [US2] Implement `VaultMetricsSnapshot` fetch/normalize (APY, TVL, utilization, reserve weights, volatility) in `src/kamino/metrics.ts`
+- [X] T023 [US2] Implement freshness check (`metricsMaxAgeMs`, default 15 min) in `src/kamino/metrics.ts`
+- [X] T024 [US2] Implement `computeRiskScore` and reserve concentration penalty (FR-017) in `src/strategy/risk.ts`
+- [X] T025 [US2] Implement risk-adjusted attractiveness and `TargetAllocation` derivation in `src/strategy/allocate.ts`
+- [X] T026 [US2] Map risk profile presets (`conservative` | `balanced` | `aggressive`) to weights/caps in `src/config/schema.ts` and `src/strategy/allocate.ts`
+- [X] T027 [P] [US2] Integration test for on-chain metrics read path in `tests/integration/vault-read.test.ts` (extend existing `tests/integration/vault.test.ts`)
 
 **Checkpoint**: Scoring and targets computable from metrics without executing trades
 
