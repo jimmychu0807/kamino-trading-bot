@@ -1,3 +1,4 @@
+import "./setup.ts";
 import { describe, expect, test } from "bun:test";
 import { createRpcClients } from "../../src/chain/rpc.ts";
 import { loadRpcUrl } from "../../src/config/load.ts";

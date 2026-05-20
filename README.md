@@ -1,109 +1,156 @@
-# Kamino Trading Bot
+# Kamino Vault Yield Rebalancer
 
-Assignment ask:
-- Write a Typescript bot that reallocates between 3 Kamino lending vaults to maximize yield. Open ended. Decide what extra features you would implement and why.
-- Document your project for other developers to build upon.
-- Bonus: build a UI to display bot rebalancing acts and logs, and parameter configurations.
-- Record a video demonstrating what you have built.
-
-TypeScript bot for reading Kamino vault state on Solana mainnet. Uses Bun, `@kamino-finance/klend-sdk`, and `@solana/kit`.
+TypeScript bot that reallocates capital across three Kamino Earn vaults using risk-adjusted scoring, guardrails, preview mode, and operational holds. Built with Bun, `@kamino-finance/klend-sdk`, and `@solana/kit`.
 
 ## Prerequisites
 
 - [Bun](https://bun.com) ≥ 1.3
-- Solana RPC URL (Helius, QuickNode, or similar)
-- Wallet private key (base58) for signing when required
+- Solana mainnet RPC URL
+- Wallet private key (base58) funded with the vault deposit asset
+- Three Kamino Earn vault addresses
 
-## Setup
+## Environment
+
+Copy and edit `.env` from `.env.example` (never commit `.env`):
+
+```bash
+cp .env.example .env
+```
+
+Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `SOLANA_RPC` | Mainnet RPC endpoint |
+| `PRIVATE_KEY` | Base58 signing key |
+| `VAULTS` | Three comma-separated vault addresses |
+| `PREVIEW_MODE` | `true` (default) = no on-chain txs; set `false` explicitly for live |
+| `CRON_EXPRESSION` | `Bun.cron` schedule (default hourly UTC) |
+| `DRIFT_TRIGGER_ENABLED` | Optional extra cycles when drift exceeds `driftBandPct` |
+| `RISK_PROFILE` | `conservative` \| `balanced` \| `aggressive` |
+| `METRICS_MAX_AGE_MS` | Stale metrics cutoff (default 15 min) |
+| `APY_SPIKE_GUARD_MULTIPLE` | Skip trading when APY > N× trailing average (default 3) |
+| `RPC_TIMEOUT_MS` / `CYCLE_TIMEOUT_MS` | Per-call and per-cycle limits |
+| `DATABASE_URL` | SQLite path (default `./data/bot.sqlite`) |
+| `ALERT_WEBHOOK_URL` | Optional JSON alert webhook |
+
+See [specs/001-vault-yield-rebalance/quickstart.md](specs/001-vault-yield-rebalance/quickstart.md) for the full operator flow.
+
+## Install & database
 
 ```bash
 bun install
+bun run db:migrate
 ```
-
-Copy environment variables (create `.env` in the project root; never commit it):
-
-```bash
-SOLANA_RPC=https://your-rpc-endpoint
-PRIVATE_KEY=your-base58-private-key
-# Optional: override default prod user address
-# PROD_ADDR=6zkpieP6nfE9AjLyqBSfnsaQYg3ruEuKCRRdSxhz48vJ
-```
-
-## Run
-
-```bash
-bun run start
-```
-
-Fetches holdings, APYs, exchange rate, allocations, and user share value for the Allez USDS vault.
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `bun run start` | Run the bot (`src/index.ts`) |
-| `bun test` | Unit tests (integration tests skipped by default) |
-| `bun run test:integration` | Unit + integration tests (requires RPC) |
-| `bun run compile` | Typecheck with `tsc --noEmit` |
-| `bun run check` | Lint/format check (Biome) |
-| `bun run format` | Auto-fix with Biome |
+| `bun run start` | Cron daemon + optional drift trigger (`src/index.ts`) |
+| `bun run cli cycle` | One rebalance cycle (preview or live per `PREVIEW_MODE`) |
+| `bun run cli ack-hold` | Acknowledge execution hold after repeated tx failures |
+| `bun run cli backtest` | Historical policy replay (no on-chain txs) |
+| `bun run db:migrate` | Apply SQLite migrations |
+| `bun run db:generate` | Generate Drizzle migrations |
+| `bun test` | Unit tests |
+| `bun run test:integration` | Integration tests (requires RPC + vaults) |
+| `bun run test:e2e` | Full process smoke test (~30s, gated) |
+| `bun run compile` | Typecheck (`tsc --noEmit`) |
+| `bun run check` | Biome lint/format check |
+| `bun run format` | Biome auto-fix |
+
+## First preview cycle
+
+```bash
+PREVIEW_MODE=true bun run cli cycle
+```
+
+Expected: decision log with scores, targets, and planned legs; `status: preview` or `skipped` — no deposits or withdrawals.
+
+## Live rebalancing
+
+1. Run several preview cycles and confirm skip/trade decisions look correct.
+2. Set `PREVIEW_MODE=false` explicitly (loader defaults to `true` when unset).
+3. Start the daemon:
+
+```bash
+bun run start
+```
+
+`Bun.cron` runs one cycle per tick with overlap protection. With `DRIFT_TRIGGER_ENABLED=true`, a drift poll can trigger additional cycles when allocation drift exceeds `policy.driftBandPct`.
+
+## Clear execution hold
+
+After three consecutive cycles with failed transactions:
+
+```bash
+bun run cli ack-hold
+```
 
 ## Testing
-
-Tests live under `tests/unit/`, `tests/integration/`, and `tests/e2e/` per the [project constitution](.specify/memory/constitution.md).
-
-After any agent-driven code change, run this validation sequence before handoff:
 
 ```bash
 bun run format
 bun run check
-bun run test
+bun run compile
+bun test
+```
+
+**Integration tests** (live RPC, read-only):
+
+```bash
+RUN_INTEGRATION_TESTS=true bun test tests/integration
+# or
 bun run test:integration
 ```
 
-**Unit tests** (no network):
-
-```bash
-bun run test
-```
-
-**Integration tests** (live RPC; read-only):
-
-```bash
-bun run test:integration
-```
-
-Requires `SOLANA_RPC` in `.env` or the environment. Integration tests call Kamino mainnet vaults and may be slow or rate-limited.
-
-**E2E tests** (full bot process; ~30s):
+**E2E** (full bot process; requires `RUN_E2E_TESTS=true`, RPC, key, vaults):
 
 ```bash
 bun run test:e2e
 ```
 
-Requires `SOLANA_RPC`, `PRIVATE_KEY`, and vault config in `.env`. Gated on `RUN_E2E_TESTS=true` only (not run by `test:integration`).
+## Dependency versions
+
+Solana stack is pinned to a single Kit tree:
+
+```bash
+bun pm ls | grep @solana/kit
+```
+
+Expect `@solana/kit@2.3.x` aligned with `@kamino-finance/klend-sdk` (see `package.json` overrides). Do not add `@solana/web3.js` 1.x.
 
 ## Project layout
 
 ```text
 src/
-├── index.ts      # Entry point
-├── config.ts     # Environment loading and validation
-├── constants.ts  # Vault addresses and helpers
-└── vault.ts      # Kamino vault read adapters
+├── index.ts           # Daemon entry (cron + drift trigger)
+├── cli.ts             # cycle | ack-hold | backtest | daemon
+├── config/
+│   ├── schema.ts      # Zod operator config
+│   └── load.ts        # Env → config
+├── chain/             # RPC, signer, tx send/confirm
+├── kamino/            # Vault reads, metrics, reconcile
+├── strategy/          # Risk, allocation, warrant
+├── cycle/             # runCycle, execute, holds, backtest
+├── db/                # Drizzle SQLite
+└── alerts/            # Structured alerts + webhook
 
 tests/
-├── unit/         # Fast tests, no RPC
-└── integration/  # RPC-gated Kamino contract tests
+├── unit/
+├── integration/
+└── e2e/
 
-.specify/         # Spec Kit templates and constitution
+specs/001-vault-yield-rebalance/   # Feature spec, plan, quickstart
 ```
 
 ## Spec Kit
 
-Feature work uses Spec Kit commands (`/speckit-specify`, `/speckit-plan`, etc.). Governance rules are in [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
+Feature design lives under `specs/001-vault-yield-rebalance/`. Governance: [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
 
 ## Security
 
-- Do not commit `.env` or private keys.
-- Integration and local runs use real mainnet RPC; treat outputs as sensitive if they include wallet-linked data.
+- Do not commit `.env`, private keys, or `data/bot.sqlite`.
+- Default to preview mode; enable live only after validating decisions.
+- Integration and daemon runs use real mainnet RPC.

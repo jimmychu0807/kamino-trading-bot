@@ -14,6 +14,8 @@ export type VaultMetricsSnapshot = {
 	yieldVolatility: number;
 	source: "chain" | "api";
 	fresh: boolean;
+	/** False when APY exceeds spike guard vs trailing average (spec edge case). */
+	validForTrading: boolean;
 };
 
 /** Per-vault risk assessment (FR-003). */
