@@ -32,11 +32,28 @@
 			"default": 300000,
 			"description": "Poll interval for drift trigger when enabled (default 5 min)"
 		},
-		"metricsMaxAgeMs": { "type": "integer", "minimum": 60000, "default": 900000 },
+		"metricsMaxAgeMs": {
+			"type": "integer",
+			"minimum": 60000,
+			"default": 900000
+		},
 		"rpcTimeoutMs": { "type": "integer", "minimum": 1000, "default": 15000 },
-		"cycleTimeoutMs": { "type": "integer", "minimum": 30000, "default": 180000 },
-		"legMaxAttempts": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
-		"consecutiveFailureThreshold": { "type": "integer", "minimum": 1, "default": 3 },
+		"cycleTimeoutMs": {
+			"type": "integer",
+			"minimum": 30000,
+			"default": 180000
+		},
+		"legMaxAttempts": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 10,
+			"default": 3
+		},
+		"consecutiveFailureThreshold": {
+			"type": "integer",
+			"minimum": 1,
+			"default": 3
+		},
 		"cronExpression": { "type": "string", "default": "0 * * * *" },
 		"vaults": {
 			"type": "array",
@@ -46,10 +63,21 @@
 				"type": "object",
 				"required": ["address"],
 				"properties": {
-					"address": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$" },
+					"address": {
+						"type": "string",
+						"pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
+					},
 					"label": { "type": "string" },
-					"minAllocationPct": { "type": "number", "minimum": 0, "maximum": 100 },
-					"maxAllocationPct": { "type": "number", "minimum": 0, "maximum": 100 },
+					"minAllocationPct": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 100
+					},
+					"maxAllocationPct": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 100
+					},
 					"enabled": { "type": "boolean", "default": true }
 				}
 			}
