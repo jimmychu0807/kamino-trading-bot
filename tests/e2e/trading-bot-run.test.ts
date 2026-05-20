@@ -44,8 +44,8 @@ describe.skipIf(!runE2e)("trading bot CLI run (e2e)", () => {
 
 		const [exitCode, stdout, stderr] = await Promise.all([
 			proc.exited,
-			proc.stdout ? Bun.readableStreamToText(proc.stdout as ReadableStream) : Promise.resolve(""),
-			proc.stderr ? Bun.readableStreamToText(proc.stderr as ReadableStream) : Promise.resolve(""),
+			proc.stdout instanceof ReadableStream ? proc.stdout.text() : Promise.resolve(""),
+			proc.stderr instanceof ReadableStream ? proc.stderr.text() : Promise.resolve(""),
 		]);
 		const elapsedMs = Date.now() - start;
 
