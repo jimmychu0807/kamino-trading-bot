@@ -1,4 +1,13 @@
 {
+	"version": "0.8.11",
+	"integration_state_schema": 1,
+	"installed_integrations": ["cursor-agent"],
+	"integration_settings": {
+		"cursor-agent": {
+			"script": "sh",
+			"invoke_separator": "-"
+		}
+	},
 	"integration": "cursor-agent",
-	"version": "0.8.1"
+	"default_integration": "cursor-agent"
 }
