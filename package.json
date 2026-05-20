@@ -3,7 +3,9 @@
 	"module": "index.ts",
 	"type": "module",
 	"scripts": {
-		"start": "bun run index.ts",
+		"start": "bun run src/index.ts",
+		"test": "bun test tests/unit",
+		"test:integration": "RUN_INTEGRATION_TESTS=true bun test",
 		"compile": "bunx --bun tsc --noEmit",
 		"check": "bunx biome check",
 		"format": "bunx biome check --write"
