@@ -6,9 +6,7 @@ import { join } from "node:path";
 const runE2e = Bun.env.RUN_E2E_TESTS === "true";
 
 function countCycleResults(stdout: string): number {
-	const ids = [
-		...stdout.matchAll(/"cycleId":\s*"([^"]+)"/g),
-	].map((match) => match[1]);
+	const ids = [...stdout.matchAll(/"cycleId":\s*"([^"]+)"/g)].map((match) => match[1]);
 	return new Set(ids).size;
 }
 
