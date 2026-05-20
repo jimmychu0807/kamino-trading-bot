@@ -26,7 +26,9 @@ jobs:
         run: bun run check
 
       - name: Run test
-        run: bun run test
+        run: |
+          cp .env.example .env
+          bun run test
 
       - name: Run integration test
         run: bun run test:integration
