@@ -1,11 +1,11 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
-- Modified principles: III. Unit & Integration Tests (NON-NEGOTIABLE) (expanded enforcement)
+- Version change: 1.1.0 → 1.1.1
+- Modified principles: III. Unit & Integration Tests (NON-NEGOTIABLE) (post-change command gate clarified); Development Workflow & Quality Gates (validation sequence updated)
 - Added sections: none
 - Removed sections: none
-- Templates: plan-template.md ✅ updated; tasks-template.md ✅ updated; spec-template.md ✅
-  no change required; README.md ✅ no change required
+- Templates: plan-template.md ✅ updated; spec-template.md ✅ updated; tasks-template.md ✅
+  updated; templates/commands/*.md ⚠ not present; README.md ✅ updated
 - Follow-up TODOs: none
 -->
 
@@ -39,6 +39,7 @@ Every change to production code in `src/` MUST include:
 After any agent-driven code change, the following commands MUST complete successfully with no
 warnings before merge or handoff:
 
+- `bun run format`
 - `bun run check`
 - `bun run test`
 - `bun run test:integration`
@@ -77,8 +78,8 @@ outside automated test runs.
 
 ## Development Workflow & Quality Gates
 
-1. **Before merge/handoff after code changes**: `bun run compile`, `bun run check` (no warnings),
-   `bun run test`, and `bun run test:integration` MUST pass.
+1. **Before merge/handoff after code changes**: `bun run format`, `bun run check` (no warnings or
+   errors), `bun run test`, and `bun run test:integration` MUST pass.
 2. **Integration execution**: If RPC-gated, required environment variables and invocation steps
    MUST be documented so `bun run test:integration` is repeatable.
 3. **Constitution Check**: Implementation plans MUST list any principle exceptions in Complexity
@@ -97,4 +98,4 @@ This constitution supersedes ad-hoc practices. Amendments require:
 All reviews MUST verify compliance with Core Principles and Quality Gates. Use `README.md` and
 `.cursor/rules/bun.mdc` for day-to-day development guidance.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-20 | **Last Amended**: 2026-05-20
+**Version**: 1.1.1 | **Ratified**: 2026-05-20 | **Last Amended**: 2026-05-20

@@ -42,6 +42,12 @@
 
 [Gates determined based on constitution file]
 
+Required post-change validation gate for agent code edits:
+- `bun run format`
+- `bun run check` (no warnings or errors)
+- `bun run test`
+- `bun run test:integration`
+
 ## Project Structure
 
 ### Documentation (this feature)

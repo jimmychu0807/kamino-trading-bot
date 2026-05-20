@@ -39,7 +39,7 @@ Build a long-running Bun daemon that periodically evaluates three Kamino Earn va
 - [x] Integration tests planned in `tests/integration/` — `KaminoVault` read paths, optional dry-run ix build; gated on `RUN_INTEGRATION_TESTS` + `SOLANA_RPC`
 - [x] `README.md` updates when run/test/env change — required before merge (quickstart env vars, cron, DB, ack-hold CLI)
 - [x] No secrets in repo; `.env` for keys and RPC
-- [x] Bun toolchain only (`bun test`, `bun run compile`, `bun run check`)
+- [x] Bun toolchain only (`bun run format`, `bun run check`, `bun run test`, `bun run test:integration`)
 
 **Post-design re-check**: All gates pass. No constitution exceptions required.
 

@@ -52,6 +52,15 @@ Fetches holdings, APYs, exchange rate, allocations, and user share value for the
 
 Tests live under `tests/unit/` and `tests/integration/` per the [project constitution](.specify/memory/constitution.md).
 
+After any agent-driven code change, run this validation sequence before handoff:
+
+```bash
+bun run format
+bun run check
+bun run test
+bun run test:integration
+```
+
 **Unit tests** (no network):
 
 ```bash
