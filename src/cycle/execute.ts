@@ -82,16 +82,18 @@ function defaultVaultIxBuilder(
 
 	return {
 		withdrawIxs: async (signer, amountBase) => {
-			const result = await (vault as unknown as {
-				withdrawIxs: (
-					user: TransactionSigner,
-					shareAmount: Decimal,
-				) => Promise<{
-					unstakeFromFarmIfNeededIxs: Instruction[];
-					withdrawIxs: Instruction[];
-					postWithdrawIxs: Instruction[];
-				}>;
-			}).withdrawIxs(signer, toSdkAmount(amountBase));
+			const result = await (
+				vault as unknown as {
+					withdrawIxs: (
+						user: TransactionSigner,
+						shareAmount: Decimal,
+					) => Promise<{
+						unstakeFromFarmIfNeededIxs: Instruction[];
+						withdrawIxs: Instruction[];
+						postWithdrawIxs: Instruction[];
+					}>;
+				}
+			).withdrawIxs(signer, toSdkAmount(amountBase));
 			return [
 				...result.unstakeFromFarmIfNeededIxs,
 				...result.withdrawIxs,
@@ -99,16 +101,18 @@ function defaultVaultIxBuilder(
 			];
 		},
 		depositIxs: async (signer, amountBase) => {
-			const result = await (vault as unknown as {
-				depositIxs: (
-					user: TransactionSigner,
-					tokenAmount: Decimal,
-				) => Promise<{
-					depositIxs: Instruction[];
-					stakeInFarmIfNeededIxs: Instruction[];
-					stakeInFlcFarmIfNeededIxs: Instruction[];
-				}>;
-			}).depositIxs(signer, toSdkAmount(amountBase));
+			const result = await (
+				vault as unknown as {
+					depositIxs: (
+						user: TransactionSigner,
+						tokenAmount: Decimal,
+					) => Promise<{
+						depositIxs: Instruction[];
+						stakeInFarmIfNeededIxs: Instruction[];
+						stakeInFlcFarmIfNeededIxs: Instruction[];
+					}>;
+				}
+			).depositIxs(signer, toSdkAmount(amountBase));
 			return [
 				...result.depositIxs,
 				...result.stakeInFarmIfNeededIxs,
