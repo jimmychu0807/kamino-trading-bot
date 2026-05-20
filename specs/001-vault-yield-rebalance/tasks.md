@@ -197,15 +197,15 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ### Tests for User Story 6
 
-- [ ] T059 [P] [US6] Unit tests for backtest runner (no `send*`, frozen policy) in `tests/unit/backtest.test.ts`
+- [X] T059 [P] [US6] Unit tests for backtest runner (no `send*`, frozen policy) in `tests/unit/backtest.test.ts`
 
 ### Implementation for User Story 6
 
-- [ ] T060 [US6] Implement Kamino API historical metrics import with shared Zod snapshot schema in `src/kamino/metrics-history.ts`
-- [ ] T061 [US6] Persist imported snapshots to `metric_snapshots` for replay in `src/db/metrics.ts`
-- [ ] T062 [US6] Implement `runBacktest(opts): Promise<BacktestReport>` per `contracts/cycle-api.md` in `src/cycle/backtest.ts`
-- [ ] T063 [US6] Add CLI entry `bun run src/cli.ts backtest` in `src/cli.ts`
-- [ ] T064 [US6] Output summary: cumulative risk-adjusted return vs equal-weight baseline in `src/cycle/backtest.ts`
+- [X] T060 [US6] Implement Kamino API historical metrics import with shared Zod snapshot schema in `src/kamino/metrics-history.ts`
+- [X] T061 [US6] Persist imported snapshots to `metric_snapshots` for replay in `src/db/metrics.ts`
+- [X] T062 [US6] Implement `runBacktest(opts): Promise<BacktestReport>` per `contracts/cycle-api.md` in `src/cycle/backtest.ts`
+- [X] T063 [US6] Add CLI entry `bun run src/cli.ts backtest` in `src/cli.ts`
+- [X] T064 [US6] Output summary: cumulative risk-adjusted return vs equal-weight baseline in `src/cycle/backtest.ts`
 
 **Checkpoint**: Backtest runs offline with tunable risk weights
 
