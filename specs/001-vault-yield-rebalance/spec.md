@@ -14,6 +14,10 @@
 - Q: When should the bot enter hold state after transaction failures? → A: After 3 consecutive cycles each ending with at least one failed transaction; automated execution pauses until operator acknowledgment.
 - Q: What is the maximum wall-clock duration for one rebalance cycle? → A: 3 minutes (default, operator-configurable); abort remainder and log timeout if exceeded.
 - Q: What is the per-call timeout for RPC and metric API requests? → A: 15 seconds (default, operator-configurable); treat timed-out calls as connectivity failures per FR-012.
+- Q: Does auto-resume after hold conflict with operator acknowledgment for tx failures? → A: Split by cause — dependency holds (stale data, connectivity, vault unavailable) auto-resume when checks pass; execution holds (3 consecutive failing cycles) require operator acknowledgment.
+- Q: What is the multi-vault move sequencing within one cycle? → A: Withdraw-then-deposit batch — all planned withdrawals first, then all planned deposits (wallet as hub).
+- Q: What happens when the cycle timeout fires mid-execution? → A: Abort like partial failure — end cycle immediately, no further legs, reconcile next cycle (no same-cycle retries).
+- Q: How many in-cycle retries for a fully failed transaction? → A: 3 retries with exponential backoff per leg (default, configurable); no retries after partial success.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -92,8 +96,9 @@ As the bot operator, I want the bot to detect unhealthy dependencies (stale data
 **Acceptance Scenarios**:
 
 1. **Given** vault metrics are older than 15 minutes (default freshness limit, operator-configurable), **When** a cycle runs, **Then** the bot does not trade and records a data-stale alert.
-2. **Given** three consecutive cycles each end with at least one failed transaction, **When** the third such cycle completes, **Then** the bot enters hold state, pauses automated execution, and requires operator acknowledgment before resuming.
-3. **Given** the bot is in hold state, **When** metrics and connectivity recover, **Then** normal cycles resume without manual redeploy.
+2. **Given** three consecutive cycles each end with at least one failed transaction, **When** the third such cycle completes, **Then** the bot enters an execution hold, pauses live execution, and requires operator acknowledgment before resuming.
+3. **Given** the bot is in a dependency hold (stale metrics, connectivity failure, or vault unavailable), **When** all dependency checks pass on a subsequent cycle, **Then** normal evaluation and trading resume automatically without operator acknowledgment or redeploy.
+4. **Given** the bot is in an execution hold, **When** the operator provides acknowledgment, **Then** live execution resumes on the next cycle without redeploy.
 
 ---
 
@@ -116,6 +121,7 @@ As the bot operator, I want to replay past vault metrics through the allocation 
 
 - What happens when one vault temporarily blocks withdrawals (liquidity cap, pause, or program constraint)?
 - **Partial transaction success** (e.g., withdraw succeeds, deposit fails): the current cycle ends immediately after the failed leg; no same-cycle retries. The next cycle MUST reconcile on-chain wallet and vault positions before planning new moves.
+- **Cycle timeout during execution** (FR-020): same as partial failure—the cycle ends immediately, no further legs run, no same-cycle retries; the next cycle reconciles before planning new moves.
 - What happens when APY data diverges sharply between sources or appears anomalous (spike > configurable multiple of trailing average)?
 - How does the bot behave when wallet balance is below minimum economically viable trade size?
 - What happens when two vaults share overlapping underlying reserves (hidden concentration risk)?
@@ -132,17 +138,18 @@ As the bot operator, I want to replay past vault metrics through the allocation 
 - **FR-004**: System MUST compute a risk-adjusted attractiveness score combining expected return and risk score for ranking vaults.
 - **FR-005**: System MUST derive target allocation percentages across the three vaults that sum to 100% of deployable capital subject to per-vault min/max caps.
 - **FR-006**: System MUST compare current on-chain allocation to target allocation and determine whether rebalancing is warranted.
-- **FR-007**: System MUST execute withdraw-and-deposit sequences to move capital toward targets when warranted and not in preview mode.
+- **FR-007**: System MUST execute withdraw-and-deposit sequences to move capital toward targets when warranted and not in preview mode; within a single cycle, execution MUST follow withdraw-then-deposit batch order—all planned withdrawals from overweight vaults to the operator wallet complete (or the withdrawal phase ends due to failure, partial success, or timeout) before any deposits to underweight vaults begin.
 - **FR-008**: System MUST support preview mode where all decisions are logged but no capital movement occurs.
 - **FR-009**: System MUST enforce operator-configurable policies: minimum improvement to rebalance, maximum allocation per vault, minimum trade size, rebalance cooldown, and critical risk exit override.
 - **FR-010**: System MUST record each cycle with timestamp, inputs (metrics snapshot), scores, target allocation, action taken (trade / skip / hold), and outcome.
-- **FR-011**: System MUST reconcile actual wallet and vault positions before planning trades after any failed or partial execution; partial success MUST NOT trigger same-cycle retries—the failed cycle ends and reconciliation runs at the start of the next cycle.
+- **FR-011**: System MUST reconcile actual wallet and vault positions before planning trades after any failed, partial, or timed-out execution; partial success and cycle timeout MUST NOT trigger same-cycle retries—the affected cycle ends and reconciliation runs at the start of the next cycle.
 - **FR-012**: System MUST skip trading when data freshness, connectivity, or vault availability checks fail, and record the reason; metrics older than 15 minutes (default, operator-configurable) MUST be treated as stale; RPC and metric API calls exceeding 15 seconds (default, operator-configurable) MUST be treated as connectivity failures.
 - **FR-013**: System MUST support scheduled periodic evaluation (default: hourly) and optional threshold-triggered evaluation when allocation drift exceeds a configured band.
 - **FR-014**: System MUST allow operators to define risk profile presets (e.g., conservative, balanced, aggressive) that map to weight and cap presets.
 - **FR-015**: System MUST emit operator-visible alerts on hold states, repeated failures, and critical risk exits.
-- **FR-019**: System MUST enter hold state and pause live execution after three consecutive cycles each ending with at least one failed transaction; resume only after operator acknowledgment (configurable threshold, default 3 consecutive failing cycles).
-- **FR-020**: System MUST enforce a maximum wall-clock duration of 3 minutes per rebalance cycle (default, operator-configurable); if exceeded, abort in-flight work, skip further execution in that cycle, and record a cycle-timeout outcome in the decision log.
+- **FR-019**: System MUST support two hold types: **dependency hold** (stale metrics, connectivity failure, vault unavailable)—skip live trading until checks pass and auto-resume on recovery without operator acknowledgment; **execution hold**—enter after three consecutive cycles each ending with at least one failed transaction (configurable threshold, default 3), pause live execution, and resume only after operator acknowledgment.
+- **FR-020**: System MUST enforce a maximum wall-clock duration of 3 minutes per rebalance cycle (default, operator-configurable); if exceeded, end the cycle immediately per FR-011 (no further legs, no same-cycle retries), skip remaining execution, and record a cycle-timeout outcome in the decision log.
+- **FR-022**: System MUST retry fully failed transactions (no on-chain confirmation) up to 3 times with exponential backoff per leg (default, configurable) before marking the leg failed; retries MUST NOT apply after partial success (e.g., confirmed withdraw with failed deposit) or after cycle timeout abort.
 - **FR-021**: System MUST apply a 15-second timeout (default, operator-configurable) to each Solana RPC and Kamino metric API request; timed-out requests MUST NOT block the cycle beyond the timeout and MUST be logged with the failing dependency identifier.
 - **FR-016**: System SHOULD support historical replay (backtest) of allocation decisions using stored or fetched metric history without submitting live trades.
 - **FR-017**: System SHOULD detect correlated exposure when multiple vaults allocate heavily to the same underlying reserve and apply a concentration penalty to composite risk.
@@ -156,7 +163,8 @@ As the bot operator, I want to replay past vault metrics through the allocation 
 - **Target Allocation**: Desired percentage or amount per vault after optimization.
 - **Rebalance Policy**: Operator rules governing when and how much the bot may trade (thresholds, caps, cooldowns, profiles).
 - **Rebalance Cycle**: One end-to-end evaluation from data fetch through decision to execution or skip; MUST complete within 3 minutes wall-clock (default, operator-configurable) or abort with a logged timeout.
-- **Rebalance Action**: Planned or executed movement of capital between vaults (withdraw, deposit, or none).
+- **Rebalance Action**: Planned or executed movement of capital between vaults (withdraw, deposit, or none); within a cycle, withdrawals precede deposits per FR-007.
+- **Hold State**: Paused or restricted execution mode; **dependency hold** auto-resumes when health checks pass; **execution hold** requires operator acknowledgment after repeated transaction failures per FR-019.
 - **Decision Log**: Immutable audit record for a cycle including rationale and outcomes.
 - **Operator Wallet**: Funded account whose vault positions the bot manages.
 
