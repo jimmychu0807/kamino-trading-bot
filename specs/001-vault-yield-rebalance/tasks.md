@@ -115,17 +115,17 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ### Tests for User Story 1
 
-- [ ] T028 [P] [US1] Unit tests for leg planning (only when warrant true) in `tests/unit/execute.test.ts`
-- [ ] T029 [P] [US1] Integration test building `withdrawIxs` / `depositIxs` without send in `tests/integration/deposit-ix-build.test.ts`
+- [X] T028 [P] [US1] Unit tests for leg planning (only when warrant true) in `tests/unit/execute.test.ts`
+- [X] T029 [P] [US1] Integration test building `withdrawIxs` / `depositIxs` without send in `tests/integration/deposit-ix-build.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T030 [US1] Implement `reconcilePositions` → `WalletPosition` in `src/kamino/reconcile.ts` (wallet balance + per-vault shares)
-- [ ] T031 [US1] Plan `RebalanceAction[]` (withdraw phase then deposit) in `src/cycle/execute.ts` only when `shouldRebalance()` returns true (Phase 4)
-- [ ] T032 [US1] Wire withdraw phase: `withdrawIxs` + `src/chain/tx.ts` send/confirm in `src/cycle/execute.ts`
-- [ ] T033 [US1] Wire deposit phase after withdrawal phase completes in `src/cycle/execute.ts`
-- [ ] T034 [US1] On partial leg failure or cycle abort: end cycle immediately, no same-cycle retries (FR-011) in `src/cycle/execute.ts`
-- [ ] T035 [US1] Export `computeMaxDriftPct(position, targets)` for FR-013 drift trigger reuse in `src/kamino/reconcile.ts` or `src/strategy/warrant.ts`
+- [X] T030 [US1] Implement `reconcilePositions` → `WalletPosition` in `src/kamino/reconcile.ts` (wallet balance + per-vault shares)
+- [X] T031 [US1] Plan `RebalanceAction[]` (withdraw phase then deposit) in `src/cycle/execute.ts` only when `shouldRebalance()` returns true (Phase 4)
+- [X] T032 [US1] Wire withdraw phase: `withdrawIxs` + `src/chain/tx.ts` send/confirm in `src/cycle/execute.ts`
+- [X] T033 [US1] Wire deposit phase after withdrawal phase completes in `src/cycle/execute.ts`
+- [X] T034 [US1] On partial leg failure or cycle abort: end cycle immediately, no same-cycle retries (FR-011) in `src/cycle/execute.ts`
+- [X] T035 [US1] Export `computeMaxDriftPct(position, targets)` for FR-013 drift trigger reuse in `src/kamino/reconcile.ts` or `src/strategy/warrant.ts`
 
 **Checkpoint**: Execution modules ready; **no live mainnet txs until Phase 6 orchestrator + explicit `PREVIEW_MODE=false`** (see quickstart)
 
