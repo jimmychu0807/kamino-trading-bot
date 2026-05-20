@@ -1,11 +1,11 @@
 <!--
 Sync Impact Report
-- Version change: (template) → 1.0.0
-- Modified principles: all placeholders replaced with project-specific principles
-- Added sections: Technology Stack & Constraints; Development Workflow & Quality Gates
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: III. Unit & Integration Tests (NON-NEGOTIABLE) (expanded enforcement)
+- Added sections: none
 - Removed sections: none
-- Templates: plan-template.md ✅ (constitution gates); tasks-template.md ✅ (tests mandatory);
-  spec-template.md ✅ (no change required); README.md ✅
+- Templates: plan-template.md ✅ updated; tasks-template.md ✅ updated; spec-template.md ✅
+  no change required; README.md ✅ no change required
 - Follow-up TODOs: none
 -->
 
@@ -36,9 +36,16 @@ Every change to production code in `src/` MUST include:
 - **Unit tests** in `tests/unit/` for pure logic, validation, and adapters (mocked I/O).
 - **Integration tests** in `tests/integration/` for Kamino/Solana read paths that touch RPC.
 
-Integration tests MAY be gated behind `RUN_INTEGRATION_TESTS=true` and `SOLANA_RPC`, but the
-suite and skip conditions MUST be documented in `README.md`. Skipped integration tests MUST NOT
-be deleted to avoid CI cost; they document real external contracts.
+After any agent-driven code change, the following commands MUST complete successfully with no
+warnings before merge or handoff:
+
+- `bun run check`
+- `bun run test`
+- `bun run test:integration`
+
+If integration tests require opt-in environment variables (for example, RPC credentials), the
+workflow MUST provide a deterministic way to run `bun run test:integration` and document setup in
+`README.md`.
 
 **Rationale**: On-chain integrations fail silently without contract-level tests; unit tests catch
 regressions cheaply.
@@ -70,11 +77,13 @@ outside automated test runs.
 
 ## Development Workflow & Quality Gates
 
-1. **Before merge**: `bun run compile`, `bun run check`, and `bun test` MUST pass.
-2. **Integration optional locally**: `RUN_INTEGRATION_TESTS=true bun test` when RPC is configured.
+1. **Before merge/handoff after code changes**: `bun run compile`, `bun run check` (no warnings),
+   `bun run test`, and `bun run test:integration` MUST pass.
+2. **Integration execution**: If RPC-gated, required environment variables and invocation steps
+   MUST be documented so `bun run test:integration` is repeatable.
 3. **Constitution Check**: Implementation plans MUST list any principle exceptions in Complexity
    Tracking with justification.
-4. **README gate**: Features that change run or test instructions MUST update `README.md`.
+4. **README gate**: Features that change run/test/env instructions MUST update `README.md`.
 
 ## Governance
 
@@ -88,4 +97,4 @@ This constitution supersedes ad-hoc practices. Amendments require:
 All reviews MUST verify compliance with Core Principles and Quality Gates. Use `README.md` and
 `.cursor/rules/bun.mdc` for day-to-day development guidance.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-20 | **Last Amended**: 2026-05-20
+**Version**: 1.1.0 | **Ratified**: 2026-05-20 | **Last Amended**: 2026-05-20
