@@ -2,8 +2,10 @@ import type { TransactionSigner } from "@solana/kit";
 import type { RpcClients } from "../chain/rpc.ts";
 import type { OperatorConfig } from "../config/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
+import { startDriftTrigger } from "./drift-trigger.ts";
 import { withCycleMutex } from "./mutex.ts";
 import { type CycleResult, runCycle } from "./runner.ts";
+import { scheduleInProcessCron } from "./schedule-cron.ts";
 
 export type TradingBotRunOptions = {
 	runForSecs?: number;
@@ -58,7 +60,7 @@ async function runScheduledCycle(ctx: TradingBotContext): Promise<void> {
 /**
  * Runs the trading bot on a schedule until `runForSecs` elapses or the process
  * receives SIGINT/SIGTERM. Uses `cycleIntervalSecs` when set; otherwise
- * `config.cronExpression` via Bun.cron.
+ * `config.cronExpression` via in-process cron scheduling (`Bun.cron.parse`).
  */
 export async function startTradingBot(
 	ctx: TradingBotContext,
@@ -84,11 +86,14 @@ export async function startTradingBot(
 		}, intervalMs);
 		stoppers.push(() => clearInterval(timer));
 	} else {
-		const job = Bun.cron(ctx.config.cronExpression, () => {
+		const job = scheduleInProcessCron(ctx.config.cronExpression, () => {
 			void runScheduledCycle(ctx);
 		});
 		stoppers.push(() => job.stop());
 	}
+
+	const driftTrigger = startDriftTrigger(ctx);
+	stoppers.push(() => driftTrigger.stop());
 
 	await runScheduledCycle(ctx);
 

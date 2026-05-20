@@ -167,21 +167,21 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ### Tests for User Story 5
 
-- [ ] T049 [P] [US5] Unit tests for hold state machine (dependency auto-resume vs execution ack) in `tests/unit/cycle-hold.test.ts`
-- [ ] T050 [P] [US5] Unit tests for cycle timeout abort and consecutive failure counter in `tests/unit/cycle-timeout.test.ts`
-- [ ] T071 [P] [US5] Unit tests for drift trigger (enabled/disabled, band exceeded, mutex with cron) in `tests/unit/drift-trigger.test.ts`
+- [X] T049 [P] [US5] Unit tests for hold state machine (dependency auto-resume vs execution ack) in `tests/unit/cycle-hold.test.ts`
+- [X] T050 [P] [US5] Unit tests for cycle timeout abort and consecutive failure counter in `tests/unit/cycle-timeout.test.ts`
+- [X] T071 [P] [US5] Unit tests for drift trigger (enabled/disabled, band exceeded, mutex with cron) in `tests/unit/drift-trigger.test.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T051 [US5] Implement dependency vs execution hold persistence in `src/cycle/hold.ts`
-- [ ] T052 [US5] Skip trading on stale metrics, RPC timeout, vault unavailable; auto-clear dependency hold when healthy in `src/cycle/runner.ts`
-- [ ] T053 [US5] Enter execution hold after 3 consecutive cycles with ≥1 failed tx; require ack to resume in `src/cycle/hold.ts`
-- [ ] T054 [US5] Implement `acknowledgeExecutionHold` CLI (`bun run src/cli.ts ack-hold`) in `src/cli.ts`
-- [ ] T055 [US5] Enforce `cycleTimeoutMs` (default 3 min) via `AbortSignal` in `src/cycle/runner.ts`
-- [ ] T056 [US5] Implement structured alert emission per `contracts/alerts.md` in `src/alerts/emit.ts`
-- [ ] T072 [US5] Implement `startDriftTrigger(ctx)` in `src/cycle/drift-trigger.ts` (FR-013): when `driftTriggerEnabled`, poll reconcile + `computeMaxDriftPct`; invoke `runCycle` if drift > `policy.driftBandPct`
-- [ ] T057 [US5] Register `Bun.cron` with `CRON_EXPRESSION` and `startDriftTrigger` when enabled; share `cycleInFlight` mutex in `src/index.ts`
-- [ ] T058 [US5] Optional `ALERT_WEBHOOK_URL` POST (non-blocking) in `src/alerts/emit.ts`
+- [X] T051 [US5] Implement dependency vs execution hold persistence in `src/cycle/hold.ts`
+- [X] T052 [US5] Skip trading on stale metrics, RPC timeout, vault unavailable; auto-clear dependency hold when healthy in `src/cycle/runner.ts`
+- [X] T053 [US5] Enter execution hold after 3 consecutive cycles with ≥1 failed tx; require ack to resume in `src/cycle/hold.ts`
+- [X] T054 [US5] Implement `acknowledgeExecutionHold` CLI (`bun run src/cli.ts ack-hold`) in `src/cli.ts`
+- [X] T055 [US5] Enforce `cycleTimeoutMs` (default 3 min) via `AbortSignal` in `src/cycle/runner.ts`
+- [X] T056 [US5] Implement structured alert emission per `contracts/alerts.md` in `src/alerts/emit.ts`
+- [X] T072 [US5] Implement `startDriftTrigger(ctx)` in `src/cycle/drift-trigger.ts` (FR-013): when `driftTriggerEnabled`, poll reconcile + `computeMaxDriftPct`; invoke `runCycle` if drift > `policy.driftBandPct`
+- [X] T057 [US5] Register `Bun.cron` with `CRON_EXPRESSION` and `startDriftTrigger` when enabled; share `cycleInFlight` mutex in `src/index.ts`
+- [X] T058 [US5] Optional `ALERT_WEBHOOK_URL` POST (non-blocking) in `src/alerts/emit.ts`
 
 **Checkpoint**: Daemon runs on cron (+ optional drift poll); holds and alerts behave per FR-019/FR-021
 

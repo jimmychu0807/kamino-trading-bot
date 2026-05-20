@@ -3,6 +3,7 @@ import { createSignerFromPrivateKey } from "./chain/signer.ts";
 import { parseRunCommandOptions } from "./cli/parse-args.ts";
 import { loadConfigFromEnv } from "./config/load.ts";
 import { startTradingBot } from "./cycle/daemon.ts";
+import { acknowledgeExecutionHold } from "./cycle/hold.ts";
 import { runCycle } from "./cycle/runner.ts";
 import { createDb } from "./db/client.ts";
 import { runMigrations } from "./db/migrate.ts";
@@ -40,6 +41,24 @@ async function runOneCycle(): Promise<void> {
 	);
 }
 
+async function runAckHold(): Promise<void> {
+	const config = loadConfigFromEnv();
+	runMigrations(config.databaseUrl);
+	const db = createDb(config.databaseUrl);
+
+	const cleared = await acknowledgeExecutionHold(db);
+	console.log(
+		JSON.stringify({
+			event: cleared ? "execution_hold_acknowledged" : "no_active_execution_hold",
+			acknowledged: cleared,
+		}),
+	);
+
+	if (!cleared) {
+		process.exit(1);
+	}
+}
+
 async function runBot(argv: string[]): Promise<void> {
 	const runOptions = parseRunCommandOptions(argv);
 	const config = loadConfigFromEnv();
@@ -52,6 +71,7 @@ async function runBot(argv: string[]): Promise<void> {
 		JSON.stringify({
 			event: "bot_start",
 			previewMode: config.previewMode,
+			driftTriggerEnabled: config.driftTriggerEnabled,
 			runForSecs: runOptions.runForSecs ?? null,
 			cycleIntervalSecs: runOptions.cycleIntervalSecs ?? null,
 			cronExpression: runOptions.cycleIntervalSecs === undefined ? config.cronExpression : null,
@@ -68,6 +88,7 @@ function printUsage(): void {
 	console.error("  bun run src/cli.ts [cycle]");
 	console.error("  bun run src/cli.ts run [runForSecs] [cycleIntervalSecs]");
 	console.error("  bun run src/cli.ts run --run-for-secs=<n> [--cycle-interval-secs=<n>]");
+	console.error("  bun run src/cli.ts ack-hold");
 	console.error("");
 	console.error("  runForSecs: stop after N seconds (default: run until SIGINT/SIGTERM)");
 	console.error(
@@ -81,6 +102,8 @@ const restArgv = process.argv.slice(3);
 try {
 	if (command === "run") {
 		await runBot(restArgv);
+	} else if (command === "ack-hold") {
+		await runAckHold();
 	} else if (command === "cycle" || !command) {
 		await runOneCycle();
 	} else {
