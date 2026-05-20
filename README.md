@@ -50,7 +50,7 @@ Fetches holdings, APYs, exchange rate, allocations, and user share value for the
 
 ## Testing
 
-Tests live under `tests/unit/` and `tests/integration/` per the [project constitution](.specify/memory/constitution.md).
+Tests live under `tests/unit/`, `tests/integration/`, and `tests/e2e/` per the [project constitution](.specify/memory/constitution.md).
 
 After any agent-driven code change, run this validation sequence before handoff:
 
@@ -64,16 +64,24 @@ bun run test:integration
 **Unit tests** (no network):
 
 ```bash
-bun test
+bun run test
 ```
 
 **Integration tests** (live RPC; read-only):
 
 ```bash
-RUN_INTEGRATION_TESTS=true bun test
+bun run test:integration
 ```
 
 Requires `SOLANA_RPC` in `.env` or the environment. Integration tests call Kamino mainnet vaults and may be slow or rate-limited.
+
+**E2E tests** (full bot process; ~30s):
+
+```bash
+bun run test:e2e
+```
+
+Requires `SOLANA_RPC`, `PRIVATE_KEY`, and vault config in `.env`. Gated on `RUN_E2E_TESTS=true` only (not run by `test:integration`).
 
 ## Project layout
 
