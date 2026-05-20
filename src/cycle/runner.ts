@@ -1,5 +1,6 @@
 import type { TransactionSigner } from "@solana/kit";
 import { eq } from "drizzle-orm";
+import { alertFromEnv } from "../alerts/emit.ts";
 import type { RpcClients } from "../chain/rpc.ts";
 import type { OperatorConfig } from "../config/schema.ts";
 import type { AppDatabase } from "../db/client.ts";
@@ -34,7 +35,17 @@ import {
 	planRebalanceActions,
 	type RebalanceAction,
 } from "./execute.ts";
-import { type ActiveHold, getActiveExecutionHold } from "./hold.ts";
+import {
+	type ActiveHold,
+	acknowledgeExecutionHold,
+	clearDependencyHold,
+	enterDependencyHold,
+	enterExecutionHold,
+	getActiveDependencyHold,
+	getActiveExecutionHold,
+	getLatestConsecutiveFailureCount,
+	nextConsecutiveFailureCount,
+} from "./hold.ts";
 
 export type CycleStatus =
 	| "completed"
@@ -64,6 +75,7 @@ export type CycleContext = {
 	db: AppDatabase;
 	now: Date;
 	abortSignal?: AbortSignal;
+	alertEnv?: Record<string, string | undefined>;
 	reconcile?: (ctx: ReconcileContext) => Promise<WalletPosition>;
 	fetchMetrics?: typeof fetchVaultMetricsSnapshots;
 	executeActions?: typeof executeRebalanceActions;
@@ -73,6 +85,17 @@ function assertNotAborted(signal: AbortSignal | undefined): void {
 	if (signal?.aborted) {
 		throw new DOMException("Cycle aborted", "AbortError");
 	}
+}
+
+function isRpcTimeoutError(error: unknown): boolean {
+	if (error instanceof Error) {
+		return error.message.includes("timed out") || error.message.includes("RPC call timed out");
+	}
+	return false;
+}
+
+function dependencyReasonFromError(error: unknown): "rpc_timeout" | "vault_unavailable" {
+	return isRpcTimeoutError(error) ? "rpc_timeout" : "vault_unavailable";
 }
 
 function currentAllocationsFromPosition(position: WalletPosition): CurrentAllocation[] {
@@ -124,6 +147,119 @@ async function persistDecision(db: AppDatabase, log: DecisionLog): Promise<void>
 	await writeDecisionLog(db, log);
 }
 
+async function finishCycleWithFailureTracking(
+	ctx: CycleContext,
+	params: {
+		cycleId: string;
+		status: CycleStatus;
+		endedAt: Date;
+		hadFailedTx: boolean;
+	},
+): Promise<ActiveHold | null> {
+	const previousCount = await getLatestConsecutiveFailureCount(ctx.db);
+	const consecutiveFailureCount = nextConsecutiveFailureCount(previousCount, params.hadFailedTx);
+
+	await finishCycle(ctx.db, {
+		cycleId: params.cycleId,
+		status: params.status,
+		endedAt: params.endedAt,
+		consecutiveFailureCount,
+	});
+
+	if (params.hadFailedTx && consecutiveFailureCount >= ctx.config.consecutiveFailureThreshold) {
+		const hold = await enterExecutionHold(ctx.db, {
+			reason: "tx_failures",
+			now: params.endedAt,
+		});
+		alertFromEnv(
+			"execution_hold_entered",
+			{
+				cycleId: params.cycleId,
+				message: `Execution hold entered after ${consecutiveFailureCount} consecutive cycles with failed transactions`,
+				details: { consecutiveFailureCount, threshold: ctx.config.consecutiveFailureThreshold },
+				now: params.endedAt,
+			},
+			ctx.alertEnv,
+		);
+		return hold;
+	}
+
+	return null;
+}
+
+async function returnDependencyHold(
+	ctx: CycleContext,
+	params: {
+		cycleId: string;
+		now: Date;
+		position?: WalletPosition;
+		reason: string;
+		alertEvent: "metrics_stale" | "rpc_timeout" | "vault_unavailable";
+		message: string;
+		details?: Record<string, unknown>;
+	},
+): Promise<CycleResult> {
+	const hadDependencyHold = await getActiveDependencyHold(ctx.db);
+	const hold = await enterDependencyHold(ctx.db, {
+		reason: params.reason,
+		now: params.now,
+	});
+
+	if (!hadDependencyHold) {
+		alertFromEnv(
+			"dependency_hold_entered",
+			{
+				cycleId: params.cycleId,
+				message: `Dependency hold entered: ${params.reason}`,
+				details: params.details,
+				now: params.now,
+			},
+			ctx.alertEnv,
+		);
+	}
+
+	alertFromEnv(
+		params.alertEvent,
+		{
+			cycleId: params.cycleId,
+			message: params.message,
+			details: params.details,
+			now: params.now,
+		},
+		ctx.alertEnv,
+	);
+
+	const decisionLog: DecisionLog = {
+		cycleId: params.cycleId,
+		inputs: {
+			...(params.position ? { position: serializePosition(params.position) } : {}),
+			hold,
+			...params.details,
+		},
+		scores: [],
+		targets: [],
+		actions: [],
+		outcome: "dependency_hold",
+		rationale: buildRationale(["Dependency hold", params.message]),
+	};
+
+	await persistDecision(ctx.db, decisionLog);
+	await finishCycleWithFailureTracking(ctx, {
+		cycleId: params.cycleId,
+		status: "dependency_hold",
+		endedAt: params.now,
+		hadFailedTx: false,
+	});
+
+	return {
+		cycleId: params.cycleId,
+		status: "dependency_hold",
+		decisionLog,
+		actions: [],
+		hold,
+	};
+}
+
 export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 	const { config, clients, signer, db, now } = ctx;
 	const cycleId = crypto.randomUUID();
@@ -150,10 +286,11 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 
 		await insertCycle(db, { cycleId, startedAt: now, previewMode });
 		await persistDecision(db, decisionLog);
-		await finishCycle(db, {
+		await finishCycleWithFailureTracking(ctx, {
 			cycleId,
 			status: "execution_hold",
 			endedAt: now,
+			hadFailedTx: false,
 		});
 
 		return {
@@ -170,18 +307,45 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 	try {
 		assertNotAborted(ctx.abortSignal);
 
-		const position = await reconcile({
-			clients,
-			walletAddress: signer.address,
-			vaultAddresses,
-		});
+		let position: WalletPosition;
+		try {
+			position = await reconcile({
+				clients,
+				walletAddress: signer.address,
+				vaultAddresses,
+			});
+		} catch (error) {
+			const reason = dependencyReasonFromError(error);
+			return returnDependencyHold(ctx, {
+				cycleId,
+				now,
+				reason,
+				alertEvent: reason,
+				message: error instanceof Error ? error.message : String(error),
+				details: { phase: "reconcile" },
+			});
+		}
 
 		assertNotAborted(ctx.abortSignal);
 
-		const snapshots = await fetchMetrics(clients, vaultAddresses, {
-			now,
-			maxAgeMs: config.metricsMaxAgeMs,
-		});
+		let snapshots: Awaited<ReturnType<typeof fetchMetrics>>;
+		try {
+			snapshots = await fetchMetrics(clients, vaultAddresses, {
+				now,
+				maxAgeMs: config.metricsMaxAgeMs,
+			});
+		} catch (error) {
+			const reason = dependencyReasonFromError(error);
+			return returnDependencyHold(ctx, {
+				cycleId,
+				now,
+				position,
+				reason,
+				alertEvent: reason,
+				message: error instanceof Error ? error.message : String(error),
+				details: { phase: "metrics" },
+			});
+		}
 
 		await writeMetricSnapshots(db, {
 			cycleId,
@@ -194,43 +358,27 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 
 		const staleVaults = snapshots.filter((snapshot) => !snapshot.fresh);
 		if (staleVaults.length > 0) {
-			const { policyHash } = await writePolicySnapshot(db, {
+			return returnDependencyHold(ctx, {
 				cycleId,
-				policy: config.policy,
 				now,
+				position,
+				reason: "stale_metrics",
+				alertEvent: "metrics_stale",
+				message: `Stale metrics for vaults: ${staleVaults.map((s) => s.vaultAddress).join(", ")}`,
+				details: { staleVaults: staleVaults.map((s) => s.vaultAddress) },
 			});
+		}
 
-			const decisionLog: DecisionLog = {
-				cycleId,
-				inputs: {
-					position: serializePosition(position),
-					staleVaults: staleVaults.map((s) => s.vaultAddress),
-					policyHash,
+		if (await clearDependencyHold(db)) {
+			alertFromEnv(
+				"dependency_hold_cleared",
+				{
+					cycleId,
+					message: "Dependency checks passed — resuming normal evaluation",
+					now,
 				},
-				scores: [],
-				targets: [],
-				actions: [],
-				outcome: "dependency_hold",
-				rationale: buildRationale([
-					"Stale metrics — dependency hold",
-					`vaults: ${staleVaults.map((s) => s.vaultAddress).join(", ")}`,
-				]),
-			};
-
-			await persistDecision(db, decisionLog);
-			await finishCycle(db, {
-				cycleId,
-				status: "dependency_hold",
-				endedAt: now,
-			});
-
-			return {
-				cycleId,
-				status: "dependency_hold",
-				decisionLog,
-				actions: [],
-				hold: null,
-			};
+				ctx.alertEnv,
+			);
 		}
 
 		const { scores, targets } = computeTargetsFromSnapshots(
@@ -274,6 +422,7 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 		let status: CycleStatus;
 		let executed: ExecutedRebalanceAction[] = [];
 		let rationale: string;
+		let hadFailedTx = false;
 
 		if (!warrant.shouldRebalance) {
 			status = "skipped";
@@ -281,6 +430,16 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 				`Skip: ${warrant.reason}`,
 				`maxDrift=${warrant.maxDriftPct.toFixed(2)}%`,
 			]);
+			alertFromEnv(
+				"rebalance_skipped",
+				{
+					cycleId,
+					message: rationale,
+					details: { reason: warrant.reason, maxDriftPct: warrant.maxDriftPct },
+					now,
+				},
+				ctx.alertEnv,
+			);
 		} else if (previewMode) {
 			status = "preview";
 			rationale = buildRationale([
@@ -289,6 +448,19 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 				`legs=${planned.length}`,
 			]);
 		} else {
+			if (warrant.criticalRiskExit) {
+				alertFromEnv(
+					"critical_risk_exit",
+					{
+						cycleId,
+						message: "Critical risk exit override — rebalancing despite cooldown/guardrails",
+						details: { reason: warrant.reason },
+						now,
+					},
+					ctx.alertEnv,
+				);
+			}
+
 			assertNotAborted(ctx.abortSignal);
 			const execution = await executeActions({
 				clients,
@@ -297,11 +469,44 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 			});
 			executed = execution.actions;
 			status = execution.status === "partial" ? "partial" : "completed";
+			hadFailedTx = executed.some((action) => action.status === "failed");
+
 			rationale = buildRationale([
 				`Live execution ${execution.status}`,
 				`confirmed=${executed.filter((a) => a.status === "confirmed").length}`,
 				`failed=${executed.filter((a) => a.status === "failed").length}`,
 			]);
+
+			if (hadFailedTx) {
+				const failed = executed.filter((a) => a.status === "failed");
+				alertFromEnv(
+					"tx_leg_failed",
+					{
+						cycleId,
+						message: `Transaction leg failed: ${failed.map((a) => a.vaultAddress).join(", ")}`,
+						details: {
+							failedLegs: failed.map((a) => ({
+								vaultAddress: a.vaultAddress,
+								kind: a.kind,
+								error: a.error,
+							})),
+						},
+						now,
+					},
+					ctx.alertEnv,
+				);
+			} else {
+				alertFromEnv(
+					"rebalance_executed",
+					{
+						cycleId,
+						message: rationale,
+						details: { legs: executed.length },
+						now,
+					},
+					ctx.alertEnv,
+				);
+			}
 
 			await writeRebalanceActions(
 				db,
@@ -340,14 +545,19 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 		};
 
 		await persistDecision(db, decisionLog);
-		await finishCycle(db, { cycleId, status, endedAt: now });
+		const hold = await finishCycleWithFailureTracking(ctx, {
+			cycleId,
+			status,
+			endedAt: now,
+			hadFailedTx,
+		});
 
 		return {
 			cycleId,
 			status,
 			decisionLog,
 			actions: planned,
-			hold: null,
+			hold,
 		};
 	} catch (error) {
 		const isAbort = error instanceof DOMException && error.name === "AbortError";
@@ -355,6 +565,19 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 		const rationale = isAbort
 			? "Cycle timeout — aborted before completion"
 			: `Cycle error: ${error instanceof Error ? error.message : String(error)}`;
+
+		if (isAbort) {
+			alertFromEnv(
+				"cycle_timeout",
+				{
+					cycleId,
+					message: rationale,
+					details: { cycleTimeoutMs: config.cycleTimeoutMs },
+					now,
+				},
+				ctx.alertEnv,
+			);
+		}
 
 		const decisionLog: DecisionLog = {
 			cycleId,
@@ -367,7 +590,12 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 		};
 
 		await persistDecision(db, decisionLog);
-		await finishCycle(db, { cycleId, status, endedAt: now });
+		await finishCycleWithFailureTracking(ctx, {
+			cycleId,
+			status,
+			endedAt: now,
+			hadFailedTx: false,
+		});
 
 		return {
 			cycleId,
@@ -401,3 +629,5 @@ export async function loadDecisionLog(
 		rationale: row.rationale,
 	};
 }
+
+export { acknowledgeExecutionHold };
