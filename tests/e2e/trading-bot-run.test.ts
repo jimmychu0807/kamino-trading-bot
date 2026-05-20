@@ -6,8 +6,10 @@ import { join } from "node:path";
 const runE2e = Bun.env.RUN_E2E_TESTS === "true";
 
 function countCycleResults(stdout: string): number {
-	const matches = stdout.match(/"cycleId":/g);
-	return matches?.length ?? 0;
+	const ids = [
+		...stdout.matchAll(/"cycleId":\s*"([^"]+)"/g),
+	].map((match) => match[1]);
+	return new Set(ids).size;
 }
 
 describe.skipIf(!runE2e)("trading bot CLI run (e2e)", () => {
