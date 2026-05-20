@@ -1,0 +1,69 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "kamino-rebalancer/config",
+	"title": "OperatorConfig",
+	"description": "Validated operator configuration (mirrors Zod schema in src/config/schema.ts)",
+	"type": "object",
+	"required": [
+		"solanaRpc",
+		"vaults",
+		"policy",
+		"previewMode",
+		"metricsMaxAgeMs",
+		"rpcTimeoutMs",
+		"cycleTimeoutMs",
+		"cronExpression"
+	],
+	"properties": {
+		"solanaRpc": { "type": "string", "format": "uri" },
+		"previewMode": { "type": "boolean", "default": false },
+		"metricsMaxAgeMs": { "type": "integer", "minimum": 60000, "default": 900000 },
+		"rpcTimeoutMs": { "type": "integer", "minimum": 1000, "default": 15000 },
+		"cycleTimeoutMs": { "type": "integer", "minimum": 30000, "default": 180000 },
+		"legMaxAttempts": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
+		"consecutiveFailureThreshold": { "type": "integer", "minimum": 1, "default": 3 },
+		"cronExpression": { "type": "string", "default": "0 * * * *" },
+		"vaults": {
+			"type": "array",
+			"minItems": 3,
+			"maxItems": 3,
+			"items": {
+				"type": "object",
+				"required": ["address"],
+				"properties": {
+					"address": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$" },
+					"label": { "type": "string" },
+					"minAllocationPct": { "type": "number", "minimum": 0, "maximum": 100 },
+					"maxAllocationPct": { "type": "number", "minimum": 0, "maximum": 100 },
+					"enabled": { "type": "boolean", "default": true }
+				}
+			}
+		},
+		"policy": {
+			"type": "object",
+			"required": ["profile"],
+			"properties": {
+				"profile": {
+					"type": "string",
+					"enum": ["conservative", "balanced", "aggressive"]
+				},
+				"minImprovementBps": { "type": "integer", "minimum": 0 },
+				"maxSingleVaultPct": { "type": "number", "minimum": 1, "maximum": 100 },
+				"minTradeSizeBase": { "type": "string", "pattern": "^[0-9]+$" },
+				"cooldownMs": { "type": "integer", "minimum": 0 },
+				"driftBandPct": { "type": "number", "minimum": 0, "maximum": 50 },
+				"cashBufferPct": { "type": "number", "minimum": 0, "maximum": 10 },
+				"criticalRiskFloor": { "type": "number", "minimum": 0, "maximum": 1 },
+				"riskWeights": {
+					"type": "object",
+					"properties": {
+						"liquidity": { "type": "number" },
+						"utilization": { "type": "number" },
+						"concentration": { "type": "number" },
+						"volatility": { "type": "number" }
+					}
+				}
+			}
+		}
+	}
+}
