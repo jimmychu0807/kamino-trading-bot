@@ -8,9 +8,7 @@ export function isCycleInFlight(): boolean {
  * Runs `fn` only when no cycle is in flight; sets mutex for duration.
  * Returns `null` when skipped due to overlap.
  */
-export async function withCycleMutex<T>(
-	fn: () => Promise<T>,
-): Promise<T | null> {
+export async function withCycleMutex<T>(fn: () => Promise<T>): Promise<T | null> {
 	if (cycleInFlight) {
 		return null;
 	}

@@ -1,24 +1,13 @@
-import type {
-	RebalancePolicy,
-	RiskProfile,
-	VaultConfig,
-} from "../config/schema.ts";
+import type { RebalancePolicy, RiskProfile, VaultConfig } from "../config/schema.ts";
 import { RISK_PROFILE_PRESETS } from "../config/schema.ts";
 import { computeRiskScores } from "./risk.ts";
-import type {
-	RiskScore,
-	TargetAllocation,
-	VaultMetricsSnapshot,
-} from "./types.ts";
+import type { RiskScore, TargetAllocation, VaultMetricsSnapshot } from "./types.ts";
 
 const EPSILON_ALLOCATION = 1e-9;
 const EPSILON_TOTAL_PCT = 1e-6;
 
 /** FR-004: combine expected return with composite safety score. */
-export function computeAttractiveness(
-	netApy: number,
-	composite: number,
-): number {
+export function computeAttractiveness(netApy: number, composite: number): number {
 	if (netApy <= 0 || composite <= 0) return 0;
 	return netApy * composite;
 }
@@ -44,12 +33,10 @@ export function computeTargetAllocations(
 	const scoreByVault = new Map(scores.map((s) => [s.vaultAddress, s]));
 	const snapshotByVault = new Map(snapshots.map((s) => [s.vaultAddress, s]));
 
-	const { deployablePct, maxSingleVaultPct } =
-		allocationParamsFromPolicy(policy);
+	const { deployablePct, maxSingleVaultPct } = allocationParamsFromPolicy(policy);
 
 	const enabledVaults = vaultConfigs.filter((v) => v.enabled !== false);
-	const weights: { address: string; raw: number; min: number; max: number }[] =
-		[];
+	const weights: { address: string; raw: number; min: number; max: number }[] = [];
 
 	for (const vault of enabledVaults) {
 		const score = scoreByVault.get(vault.address);
@@ -57,10 +44,7 @@ export function computeTargetAllocations(
 		if (!score || !snapshot) continue;
 
 		const min = vault.minAllocationPct;
-		const max = Math.min(
-			vault.maxAllocationPct ?? maxSingleVaultPct,
-			maxSingleVaultPct,
-		);
+		const max = Math.min(vault.maxAllocationPct ?? maxSingleVaultPct, maxSingleVaultPct);
 
 		let raw = 0;
 		if (!score.critical) {
@@ -82,9 +66,7 @@ export function computeTargetAllocations(
 		const score = scoreByVault.get(address);
 		if (!snapshot || !score) return [];
 		const amount =
-			totalDeployable > 0n
-				? (totalDeployable * BigInt(Math.round(targetPct * 100))) / 10000n
-				: 0n;
+			totalDeployable > 0n ? (totalDeployable * BigInt(Math.round(targetPct * 100))) / 10000n : 0n;
 		return [
 			{
 				vaultAddress: address,
@@ -147,8 +129,7 @@ function distributeWithCaps(
 		const nextFluid: typeof fluid = [];
 
 		for (const e of fluid) {
-			const share =
-				rawSum > 0 ? (e.raw / rawSum) * remaining : remaining / fluid.length;
+			const share = rawSum > 0 ? (e.raw / rawSum) * remaining : remaining / fluid.length;
 			const current = result.get(e.address) ?? 0;
 			const capRoom = e.max - current;
 			const grant = Math.min(share, capRoom, remaining);
@@ -156,10 +137,7 @@ function distributeWithCaps(
 			result.set(e.address, current + grant);
 			remaining -= grant;
 
-			if (
-				current + grant < e.max - EPSILON_ALLOCATION &&
-				share > grant + EPSILON_ALLOCATION
-			) {
+			if (current + grant < e.max - EPSILON_ALLOCATION && share > grant + EPSILON_ALLOCATION) {
 				nextFluid.push(e);
 			}
 		}
@@ -233,10 +211,7 @@ function applyPolicyCaps(
 	const maxByVault = new Map(
 		vaultConfigs.map((vault) => [
 			vault.address,
-			Math.min(
-				vault.maxAllocationPct ?? policy.maxSingleVaultPct,
-				policy.maxSingleVaultPct,
-			),
+			Math.min(vault.maxAllocationPct ?? policy.maxSingleVaultPct, policy.maxSingleVaultPct),
 		]),
 	);
 

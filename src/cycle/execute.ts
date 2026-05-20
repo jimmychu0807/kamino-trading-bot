@@ -35,22 +35,13 @@ export type ExecuteRebalanceResult = {
 };
 
 export type VaultIxBuilder = {
-	withdrawIxs: (
-		signer: TransactionSigner,
-		amountBase: bigint | Decimal,
-	) => Promise<Instruction[]>;
-	depositIxs: (
-		signer: TransactionSigner,
-		amountBase: bigint | Decimal,
-	) => Promise<Instruction[]>;
+	withdrawIxs: (signer: TransactionSigner, amountBase: bigint | Decimal) => Promise<Instruction[]>;
+	depositIxs: (signer: TransactionSigner, amountBase: bigint | Decimal) => Promise<Instruction[]>;
 };
 
 export type BuildActionInstructionsContext = {
 	signer: TransactionSigner;
-	createVaultIxBuilder?: (
-		vaultAddress: string,
-		clients: RpcClients,
-	) => VaultIxBuilder;
+	createVaultIxBuilder?: (vaultAddress: string, clients: RpcClients) => VaultIxBuilder;
 	clients: RpcClients;
 };
 
@@ -58,10 +49,7 @@ export type ExecuteRebalanceActionsInput = {
 	clients: RpcClients;
 	signer: TransactionSigner;
 	actions: RebalanceAction[];
-	createVaultIxBuilder?: (
-		vaultAddress: string,
-		clients: RpcClients,
-	) => VaultIxBuilder;
+	createVaultIxBuilder?: (vaultAddress: string, clients: RpcClients) => VaultIxBuilder;
 	sendInstructions?: (
 		clients: RpcClients,
 		signer: TransactionSigner,
@@ -69,16 +57,11 @@ export type ExecuteRebalanceActionsInput = {
 	) => Promise<{ signature: Signature; attempts: number }>;
 };
 
-function defaultVaultIxBuilder(
-	vaultAddress: string,
-	clients: RpcClients,
-): VaultIxBuilder {
+function defaultVaultIxBuilder(vaultAddress: string, clients: RpcClients): VaultIxBuilder {
 	const vault = createVaultClient(clients.rpc, vaultAddress);
 
 	const toSdkAmount = (amountBase: bigint | Decimal): Decimal =>
-		amountBase instanceof Decimal
-			? amountBase
-			: new Decimal(amountBase.toString());
+		amountBase instanceof Decimal ? amountBase : new Decimal(amountBase.toString());
 
 	return {
 		withdrawIxs: async (signer, amountBase) => {
@@ -123,14 +106,10 @@ function defaultVaultIxBuilder(
 }
 
 function currentValueByVault(position: WalletPosition): Map<string, bigint> {
-	return new Map(
-		position.vaultShares.map((share) => [share.vaultAddress, share.valueBase]),
-	);
+	return new Map(position.vaultShares.map((share) => [share.vaultAddress, share.valueBase]));
 }
 
-export function planRebalanceActions(
-	input: PlanRebalanceActionsInput,
-): RebalanceAction[] {
+export function planRebalanceActions(input: PlanRebalanceActionsInput): RebalanceAction[] {
 	if (!input.warrant.shouldRebalance) {
 		return [];
 	}
@@ -194,11 +173,7 @@ export async function executeRebalanceActions(
 				createVaultIxBuilder: input.createVaultIxBuilder,
 			});
 
-			const sendResult = await sendInstructions(
-				input.clients,
-				input.signer,
-				instructions,
-			);
+			const sendResult = await sendInstructions(input.clients, input.signer, instructions);
 			executed.push({
 				...action,
 				status: "confirmed",

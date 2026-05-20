@@ -35,18 +35,10 @@ export type ShouldRebalanceResult = {
 
 const EPSILON_PCT = 1e-6;
 
-export function shouldRebalance(
-	input: ShouldRebalanceInput,
-): ShouldRebalanceResult {
+export function shouldRebalance(input: ShouldRebalanceInput): ShouldRebalanceResult {
 	const now = input.now ?? new Date();
-	const maxDriftPct = computeMaxDriftPct(
-		input.currentAllocations,
-		input.targets,
-	);
-	const projectedTradeSizeBase = estimateTradeSizeBase(
-		input.totalDeployableBase,
-		maxDriftPct,
-	);
+	const maxDriftPct = computeMaxDriftPct(input.currentAllocations, input.targets);
+	const projectedTradeSizeBase = estimateTradeSizeBase(input.totalDeployableBase, maxDriftPct);
 
 	const criticalRiskExit = hasCriticalRiskExit(
 		input.scores ?? [],
@@ -117,10 +109,7 @@ export function computeMaxDriftPct(
 	targets: Pick<TargetAllocation, "vaultAddress" | "targetPct">[],
 ): number {
 	const currentByVault = new Map(
-		currentAllocations.map((allocation) => [
-			allocation.vaultAddress,
-			allocation.currentPct,
-		]),
+		currentAllocations.map((allocation) => [allocation.vaultAddress, allocation.currentPct]),
 	);
 
 	let maxDrift = 0;
@@ -135,10 +124,7 @@ export function computeMaxDriftPct(
 	return maxDrift;
 }
 
-export function estimateTradeSizeBase(
-	totalDeployableBase: bigint,
-	maxDriftPct: number,
-): bigint {
+export function estimateTradeSizeBase(totalDeployableBase: bigint, maxDriftPct: number): bigint {
 	if (totalDeployableBase <= 0n || maxDriftPct <= 0) {
 		return 0n;
 	}
@@ -170,14 +156,9 @@ function hasCriticalRiskExit(
 	}
 
 	const currentByVault = new Map(
-		currentAllocations.map((allocation) => [
-			allocation.vaultAddress,
-			allocation.currentPct,
-		]),
+		currentAllocations.map((allocation) => [allocation.vaultAddress, allocation.currentPct]),
 	);
-	const targetByVault = new Map(
-		targets.map((target) => [target.vaultAddress, target.targetPct]),
-	);
+	const targetByVault = new Map(targets.map((target) => [target.vaultAddress, target.targetPct]));
 
 	for (const vaultAddress of criticalVaults) {
 		const currentPct = currentByVault.get(vaultAddress) ?? 0;

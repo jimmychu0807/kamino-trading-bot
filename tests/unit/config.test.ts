@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { loadConfigFromEnv, loadRpcUrl } from "../../src/config/load.ts";
-import {
-	parseOperatorConfig,
-	RISK_PROFILE_PRESETS,
-} from "../../src/config/schema.ts";
+import { parseOperatorConfig, RISK_PROFILE_PRESETS } from "../../src/config/schema.ts";
 import { EXAMPLE_VAULT_ADDRESSES } from "../../src/constants.ts";
 
 const VAULT_TRIPLET = [
@@ -63,12 +60,8 @@ describe("parseOperatorConfig", () => {
 
 	test("applies balanced risk profile preset caps", () => {
 		const cfg = parseOperatorConfig(baseOperatorInput());
-		expect(cfg.policy.maxSingleVaultPct).toBe(
-			RISK_PROFILE_PRESETS.balanced.maxSingleVaultPct,
-		);
-		expect(cfg.policy.minImprovementBps).toBe(
-			RISK_PROFILE_PRESETS.balanced.minImprovementBps,
-		);
+		expect(cfg.policy.maxSingleVaultPct).toBe(RISK_PROFILE_PRESETS.balanced.maxSingleVaultPct);
+		expect(cfg.policy.minImprovementBps).toBe(RISK_PROFILE_PRESETS.balanced.minImprovementBps);
 	});
 
 	test("respects timeout and drift trigger fields", () => {
@@ -91,9 +84,7 @@ describe("parseOperatorConfig", () => {
 			policy: { profile: "conservative", minTradeSizeBase: "1" },
 		});
 		for (const vault of cfg.vaults) {
-			expect(vault.maxAllocationPct).toBe(
-				RISK_PROFILE_PRESETS.conservative.maxSingleVaultPct,
-			);
+			expect(vault.maxAllocationPct).toBe(RISK_PROFILE_PRESETS.conservative.maxSingleVaultPct);
 		}
 	});
 });
@@ -112,9 +103,7 @@ describe("loadConfigFromEnv", () => {
 	});
 
 	test("throws when VAULTS is missing or not three addresses", () => {
-		expect(() => loadConfigFromEnv({ ...validEnv, VAULTS: "" })).toThrow(
-			/VAULTS/,
-		);
+		expect(() => loadConfigFromEnv({ ...validEnv, VAULTS: "" })).toThrow(/VAULTS/);
 		expect(() =>
 			loadConfigFromEnv({
 				...validEnv,
@@ -152,8 +141,6 @@ describe("loadRpcUrl", () => {
 	});
 
 	test("returns rpc url when set", () => {
-		expect(loadRpcUrl({ SOLANA_RPC: "https://rpc.example.com" })).toBe(
-			"https://rpc.example.com",
-		);
+		expect(loadRpcUrl({ SOLANA_RPC: "https://rpc.example.com" })).toBe("https://rpc.example.com");
 	});
 });

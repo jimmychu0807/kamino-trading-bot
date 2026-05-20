@@ -1,9 +1,5 @@
 import type { RebalancePolicy } from "../config/schema.ts";
-import type {
-	ReserveWeight,
-	RiskScore,
-	VaultMetricsSnapshot,
-} from "./types.ts";
+import type { ReserveWeight, RiskScore, VaultMetricsSnapshot } from "./types.ts";
 
 const DEFAULT_REFERENCE_TVL_USD = 10_000_000;
 const MAX_VOLATILITY = 0.5;
@@ -25,9 +21,7 @@ export function computeUtilizationScore(utilization: number | null): number {
 }
 
 /** Lower single-reserve concentration → higher score (0–1). */
-export function computeConcentrationScore(
-	reserveWeights: ReserveWeight[],
-): number {
+export function computeConcentrationScore(reserveWeights: ReserveWeight[]): number {
 	if (reserveWeights.length === 0) return 0.5;
 	const maxWeight = Math.max(...reserveWeights.map((r) => r.weightPct));
 	return clamp01(1 - maxWeight / 100);
@@ -75,23 +69,15 @@ export function computeRiskScore(
 		options?.referenceTvlUsd ??
 		Math.max(...allSnapshots.map((s) => s.tvlUsd), DEFAULT_REFERENCE_TVL_USD);
 
-	const liquidityScore = computeLiquidityScore(
-		snapshot.tvlUsd,
-		referenceTvlUsd,
-	);
+	const liquidityScore = computeLiquidityScore(snapshot.tvlUsd, referenceTvlUsd);
 	const utilizationScore = computeUtilizationScore(snapshot.utilization);
 	const baseConcentration = computeConcentrationScore(snapshot.reserveWeights);
 	const crossPenalty = computeCrossVaultReservePenalty(snapshot, allSnapshots);
-	const concentrationScore = clamp01(
-		baseConcentration * (1 - crossPenalty * 0.5),
-	);
-	const volatilityScore = clamp01(
-		1 - Math.min(snapshot.yieldVolatility / MAX_VOLATILITY, 1),
-	);
+	const concentrationScore = clamp01(baseConcentration * (1 - crossPenalty * 0.5));
+	const volatilityScore = clamp01(1 - Math.min(snapshot.yieldVolatility / MAX_VOLATILITY, 1));
 
 	const w = policy.riskWeights;
-	const weightSum =
-		w.liquidity + w.utilization + w.concentration + w.volatility;
+	const weightSum = w.liquidity + w.utilization + w.concentration + w.volatility;
 	const composite =
 		weightSum > 0
 			? clamp01(
@@ -118,10 +104,7 @@ export function computeRiskScores(
 	snapshots: VaultMetricsSnapshot[],
 	policy: RebalancePolicy,
 ): RiskScore[] {
-	const referenceTvlUsd = Math.max(
-		...snapshots.map((s) => s.tvlUsd),
-		DEFAULT_REFERENCE_TVL_USD,
-	);
+	const referenceTvlUsd = Math.max(...snapshots.map((s) => s.tvlUsd), DEFAULT_REFERENCE_TVL_USD);
 	return snapshots.map((snapshot) =>
 		computeRiskScore(snapshot, policy, {
 			allSnapshots: snapshots,

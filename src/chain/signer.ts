@@ -1,8 +1,4 @@
-import {
-	createKeyPairSignerFromBytes,
-	getBase58Codec,
-	type TransactionSigner,
-} from "@solana/kit";
+import { createKeyPairSignerFromBytes, getBase58Codec, type TransactionSigner } from "@solana/kit";
 
 export async function createSignerFromPrivateKey(
 	privateKeyBase58: string,

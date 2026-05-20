@@ -39,17 +39,12 @@ export async function buildAndSendInstructions(
 	options: SendLegOptions = {},
 ): Promise<SendLegResult> {
 	const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-	const initialBackoffMs =
-		options.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS;
+	const initialBackoffMs = options.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS;
 
 	let lastError: unknown;
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		try {
-			const signature = await sendInstructionsOnce(
-				clients,
-				signer,
-				instructions,
-			);
+			const signature = await sendInstructionsOnce(clients, signer, instructions);
 			return { signature, attempts: attempt };
 		} catch (error) {
 			lastError = error;
@@ -91,8 +86,7 @@ async function sendInstructionsOnce(
 		(m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
 	);
 
-	const signedTransaction =
-		await signTransactionMessageWithSigners(transactionMessage);
+	const signedTransaction = await signTransactionMessageWithSigners(transactionMessage);
 
 	const sendAndConfirm = sendAndConfirmTransactionFactory({
 		rpc: clients.rpc,

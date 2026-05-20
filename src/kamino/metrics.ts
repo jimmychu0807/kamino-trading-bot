@@ -34,10 +34,7 @@ export function markSnapshotFreshness(
 }
 
 /** Trailing coefficient-of-variation of recorded APY samples (0 = stable). */
-export function computeYieldVolatility(
-	vaultAddress: string,
-	netApy: number,
-): number {
+export function computeYieldVolatility(vaultAddress: string, netApy: number): number {
 	const history = apyHistoryByVault.get(vaultAddress) ?? [];
 	history.push(netApy);
 	if (history.length > APY_HISTORY_MAX) history.shift();
@@ -48,8 +45,7 @@ export function computeYieldVolatility(
 	const mean = history.reduce((s, v) => s + v, 0) / history.length;
 	if (mean <= 0) return 0;
 
-	const variance =
-		history.reduce((s, v) => s + (v - mean) ** 2, 0) / history.length;
+	const variance = history.reduce((s, v) => s + (v - mean) ** 2, 0) / history.length;
 	const stddev = Math.sqrt(variance);
 	return stddev / mean;
 }
@@ -75,10 +71,7 @@ export function reserveWeightsFromAllocations(
 	}));
 }
 
-export function utilizationFromHoldings(
-	invested: Decimal,
-	totalAum: Decimal,
-): number | null {
+export function utilizationFromHoldings(invested: Decimal, totalAum: Decimal): number | null {
 	if (totalAum.lte(0)) return null;
 	return invested.div(totalAum).toNumber();
 }
@@ -99,24 +92,18 @@ export async function fetchVaultMetricsSnapshot(
 	const now = options?.now ?? new Date();
 	const vault = createVaultClient(clients.rpc, vaultAddress);
 
-	const { apys, holdings, allocations } = await withRpcTimeout(
-		clients,
-		async () => {
-			const [apys, holdings, allocations] = await Promise.all([
-				vault.getAPYs(),
-				vault.getVaultHoldings(),
-				vault.getVaultAllocations(),
-			]);
-			return { apys, holdings, allocations };
-		},
-	);
+	const { apys, holdings, allocations } = await withRpcTimeout(clients, async () => {
+		const [apys, holdings, allocations] = await Promise.all([
+			vault.getAPYs(),
+			vault.getVaultHoldings(),
+			vault.getVaultAllocations(),
+		]);
+		return { apys, holdings, allocations };
+	});
 
 	const netApy = apys.actualAPY.netAPY.toNumber();
 	const tvlUsd = holdings.totalAUMIncludingFees.toNumber();
-	const utilization = utilizationFromHoldings(
-		holdings.invested,
-		holdings.totalAUMIncludingFees,
-	);
+	const utilization = utilizationFromHoldings(holdings.invested, holdings.totalAUMIncludingFees);
 	const reserveWeights = reserveWeightsFromAllocations(allocations);
 	const yieldVolatility = computeYieldVolatility(vaultAddress, netApy);
 
@@ -145,16 +132,13 @@ export async function fetchVaultMetricsSnapshots(
 	options?: { now?: Date; maxAgeMs?: number },
 ): Promise<VaultMetricsSnapshot[]> {
 	return Promise.all(
-		vaultAddresses.map((vaultAddress) =>
-			fetchVaultMetricsSnapshot(clients, vaultAddress, options),
-		),
+		vaultAddresses.map((vaultAddress) => fetchVaultMetricsSnapshot(clients, vaultAddress, options)),
 	);
 }
 
 /** @internal test helper — build snapshot without RPC */
 export function buildMetricsSnapshot(
-	input: Partial<VaultMetricsSnapshot> &
-		Pick<VaultMetricsSnapshot, "vaultAddress">,
+	input: Partial<VaultMetricsSnapshot> & Pick<VaultMetricsSnapshot, "vaultAddress">,
 ): VaultMetricsSnapshot {
 	const capturedAt = input.capturedAt ?? new Date();
 	return {

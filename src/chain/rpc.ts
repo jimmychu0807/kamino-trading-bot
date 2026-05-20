@@ -21,22 +21,15 @@ export function rpcUrlToWebSocketUrl(rpcUrl: string): string {
 	} else if (url.protocol === "http:") {
 		url.protocol = "ws:";
 	} else if (url.protocol !== "wss:" && url.protocol !== "ws:") {
-		throw new Error(
-			`Unsupported RPC URL scheme for subscriptions: ${url.protocol}`,
-		);
+		throw new Error(`Unsupported RPC URL scheme for subscriptions: ${url.protocol}`);
 	}
 	return url.toString();
 }
 
-export function createRpcClients(
-	rpcUrl: string,
-	timeoutMs: number,
-): RpcClients {
+export function createRpcClients(rpcUrl: string, timeoutMs: number): RpcClients {
 	return {
 		rpc: createSolanaRpc(rpcUrl),
-		rpcSubscriptions: createSolanaRpcSubscriptions(
-			rpcUrlToWebSocketUrl(rpcUrl),
-		),
+		rpcSubscriptions: createSolanaRpcSubscriptions(rpcUrlToWebSocketUrl(rpcUrl)),
 		timeoutMs,
 	};
 }
