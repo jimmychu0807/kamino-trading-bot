@@ -84,7 +84,8 @@ src/
 ├── cycle/
 │   ├── runner.ts            # runCycle orchestrator
 │   ├── execute.ts           # withdraw/deposit phases
-│   └── hold.ts              # dependency vs execution hold
+│   ├── hold.ts              # dependency vs execution hold
+│   └── drift-trigger.ts     # optional FR-013 poll → runCycle
 ├── db/
 │   ├── schema.ts            # Drizzle tables
 │   ├── client.ts            # sqlite connection
@@ -98,7 +99,8 @@ tests/
 │   ├── risk.test.ts
 │   ├── allocate.test.ts
 │   ├── warrant.test.ts
-│   └── cycle-hold.test.ts
+│   ├── cycle-hold.test.ts
+│   └── drift-trigger.test.ts
 └── integration/
     ├── vault-read.test.ts
     └── deposit-ix-build.test.ts   # ix only, no send
@@ -175,7 +177,9 @@ Upgrade policy: bump klend-sdk only after verifying its peer `@solana/kit` range
 
 ```mermaid
 flowchart TD
-  cron[Bun.cron tick] --> holdCheck{Active execution hold?}
+  cron[Bun.cron tick] --> cycleEntry[runCycle entry]
+  drift[Drift poll tick optional] --> cycleEntry
+  cycleEntry --> holdCheck{Active execution hold?}
   holdCheck -->|yes, no ack| skip[Skip cycle / log]
   holdCheck -->|no| reconcile[Reconcile WalletPosition]
   reconcile --> metrics[Fetch metrics + freshness]
@@ -203,11 +207,12 @@ Suggested epic order:
 
 1. **Foundation** — Zod config, Drizzle schema, RPC/signer adapters, extend `kamino/vault.ts`
 2. **Read path** — metrics ingestion, reconcile, integration tests
-3. **Strategy** — risk, allocation, warrant, unit tests
-4. **Cycle core** — `runCycle`, holds, timeouts, preview mode, decision logs
-5. **Execution** — withdraw/deposit phases, retries, partial/timeout handling
-6. **Operations** — `Bun.cron`, alerts, ack-hold CLI, README
-7. **P3** — backtest mode, reserve concentration penalty tuning
+3. **Strategy** — risk, allocation, unit tests
+4. **Guardrails** — warrant (`shouldRebalance`) before any live execution
+5. **Execution** — withdraw/deposit phases, retries, partial/timeout handling (preview-safe until orchestrator)
+6. **Cycle core** — `runCycle`, holds, timeouts, preview mode, decision logs
+7. **Operations** — `Bun.cron`, drift trigger (FR-013), alerts, ack-hold CLI, README
+8. **P3** — backtest mode, reserve concentration penalty tuning
 
 ---
 
@@ -232,6 +237,6 @@ Suggested epic order:
 | `specs/001-vault-yield-rebalance/data-model.md` | ✅ |
 | `specs/001-vault-yield-rebalance/quickstart.md` | ✅ |
 | `specs/001-vault-yield-rebalance/contracts/*` | ✅ |
-| `specs/001-vault-yield-rebalance/tasks.md` | ⏳ `/speckit-tasks` |
+| `specs/001-vault-yield-rebalance/tasks.md` | ✅ |
 
-**Next command**: `/speckit-tasks` to generate dependency-ordered `tasks.md`.
+**Next command**: `/speckit-implement` to execute dependency-ordered tasks.

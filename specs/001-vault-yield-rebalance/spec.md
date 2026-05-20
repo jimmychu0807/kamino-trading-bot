@@ -18,6 +18,9 @@
 - Q: What is the multi-vault move sequencing within one cycle? → A: Withdraw-then-deposit batch — all planned withdrawals first, then all planned deposits (wallet as hub).
 - Q: What happens when the cycle timeout fires mid-execution? → A: Abort like partial failure — end cycle immediately, no further legs, reconcile next cycle (no same-cycle retries).
 - Q: How many in-cycle retries for a fully failed transaction? → A: 3 retries with exponential backoff per leg (default, configurable); no retries after partial success.
+- Q: What is the default for preview mode when unset? → A: `true` (safe default); live execution requires explicit `PREVIEW_MODE=false`.
+- Q: How does optional drift-triggered evaluation work (FR-013)? → A: When `driftTriggerEnabled`, a background poll (default 5 min) reconciles positions and runs a full cycle if any vault’s allocation drift exceeds `policy.driftBandPct`; shares `cycleInFlight` mutex with cron. When disabled, evaluation runs on cron only.
+- Q: Does `driftBandPct` serve multiple roles? → A: Yes—same field for (1) optional FR-013 extra cycle trigger and (2) within-band skip / churn avoidance in warrant logic (FR-009).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -139,12 +142,12 @@ As the bot operator, I want to replay past vault metrics through the allocation 
 - **FR-005**: System MUST derive target allocation percentages across the three vaults that sum to 100% of deployable capital subject to per-vault min/max caps.
 - **FR-006**: System MUST compare current on-chain allocation to target allocation and determine whether rebalancing is warranted.
 - **FR-007**: System MUST execute withdraw-and-deposit sequences to move capital toward targets when warranted and not in preview mode; within a single cycle, execution MUST follow withdraw-then-deposit batch order—all planned withdrawals from overweight vaults to the operator wallet complete (or the withdrawal phase ends due to failure, partial success, or timeout) before any deposits to underweight vaults begin.
-- **FR-008**: System MUST support preview mode where all decisions are logged but no capital movement occurs.
+- **FR-008**: System MUST support preview mode where all decisions are logged but no capital movement occurs. When `PREVIEW_MODE` is unset, the loader MUST default to preview enabled (`true`); live execution requires an explicit operator opt-in (`PREVIEW_MODE=false`).
 - **FR-009**: System MUST enforce operator-configurable policies: minimum improvement to rebalance, maximum allocation per vault, minimum trade size, rebalance cooldown, and critical risk exit override.
 - **FR-010**: System MUST record each cycle with timestamp, inputs (metrics snapshot), scores, target allocation, action taken (trade / skip / hold), and outcome.
 - **FR-011**: System MUST reconcile actual wallet and vault positions before planning trades after any failed, partial, or timed-out execution; partial success and cycle timeout MUST NOT trigger same-cycle retries—the affected cycle ends and reconciliation runs at the start of the next cycle.
 - **FR-012**: System MUST skip trading when data freshness, connectivity, or vault availability checks fail, and record the reason; metrics older than 15 minutes (default, operator-configurable) MUST be treated as stale; RPC and metric API calls exceeding 15 seconds (default, operator-configurable) MUST be treated as connectivity failures.
-- **FR-013**: System MUST support scheduled periodic evaluation (default: hourly) and optional threshold-triggered evaluation when allocation drift exceeds a configured band.
+- **FR-013**: System MUST support scheduled periodic evaluation (default: hourly via `Bun.cron`) and optional threshold-triggered evaluation: when `driftTriggerEnabled` is true, a background poll (default interval 5 minutes, operator-configurable) reconciles on-chain positions and invokes a full rebalance cycle when any vault’s absolute allocation drift exceeds `policy.driftBandPct` (same band used for within-band skip in FR-009). Drift-triggered cycles MUST respect the same `cycleInFlight` mutex, hold states, and guardrails as cron-triggered cycles. When `driftTriggerEnabled` is false (default), drift is evaluated only on scheduled cron ticks.
 - **FR-014**: System MUST allow operators to define risk profile presets (e.g., conservative, balanced, aggressive) that map to weight and cap presets.
 - **FR-015**: System MUST emit operator-visible alerts on hold states, repeated failures, and critical risk exits.
 - **FR-019**: System MUST support two hold types: **dependency hold** (stale metrics, connectivity failure, vault unavailable)—skip live trading until checks pass and auto-resume on recovery without operator acknowledgment; **execution hold**—enter after three consecutive cycles each ending with at least one failed transaction (configurable threshold, default 3), pause live execution, and resume only after operator acknowledgment.

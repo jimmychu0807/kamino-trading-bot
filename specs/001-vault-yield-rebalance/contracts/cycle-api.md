@@ -60,6 +60,18 @@ Operator CLI: `bun run src/cli.ts ack-hold` sets `hold_states.acknowledged_at`.
 
 ---
 
+## `startDriftTrigger(ctx: CycleContext): void`
+
+FR-013 optional scheduler. When `config.driftTriggerEnabled`:
+
+1. On each `driftPollIntervalMs` tick, acquire `cycleInFlight` (skip if busy).
+2. `reconcilePositions` → compare `computeMaxDriftPct` to `policy.driftBandPct`.
+3. If exceeded, call `runCycle(ctx)` (same holds/guardrails as cron).
+
+When disabled, no-op.
+
+---
+
 ## `runBacktest(opts: BacktestOptions): Promise<BacktestReport>`
 
 FR-016; no `send*` calls; reads historical snapshots from DB or API import.

@@ -16,7 +16,22 @@
 	],
 	"properties": {
 		"solanaRpc": { "type": "string", "format": "uri" },
-		"previewMode": { "type": "boolean", "default": false },
+		"previewMode": {
+			"type": "boolean",
+			"default": true,
+			"description": "When true, log decisions only; no on-chain txs. Env PREVIEW_MODE overrides; loader MUST default to true if unset (safety)."
+		},
+		"driftTriggerEnabled": {
+			"type": "boolean",
+			"default": false,
+			"description": "FR-013: optional extra runCycle when allocation drift exceeds policy.driftBandPct"
+		},
+		"driftPollIntervalMs": {
+			"type": "integer",
+			"minimum": 60000,
+			"default": 300000,
+			"description": "Poll interval for drift trigger when enabled (default 5 min)"
+		},
 		"metricsMaxAgeMs": { "type": "integer", "minimum": 60000, "default": 900000 },
 		"rpcTimeoutMs": { "type": "integer", "minimum": 1000, "default": 15000 },
 		"cycleTimeoutMs": { "type": "integer", "minimum": 30000, "default": 180000 },

@@ -34,6 +34,10 @@ METRICS_MAX_AGE_MS=900000
 RPC_TIMEOUT_MS=15000
 CYCLE_TIMEOUT_MS=180000
 
+# Optional: extra cycles when allocation drift exceeds policy.driftBandPct (FR-013)
+DRIFT_TRIGGER_ENABLED=false
+DRIFT_POLL_INTERVAL_MS=300000
+
 # SQLite path (gitignored)
 DATABASE_URL=./data/bot.sqlite
 ```
@@ -57,15 +61,17 @@ Expected: decision log with scores, targets, planned withdraw/deposit legs, `sta
 
 ## Enable live rebalancing
 
+**Prerequisite**: Guardrails (`shouldRebalance`, cooldown, min improvement) and cycle orchestrator (`runCycle`) MUST be implemented before live txs—see tasks Phase 4 (US4) then Phase 6 (US3). Do not set `PREVIEW_MODE=false` until preview cycles show expected skip/trade decisions.
+
 1. Confirm preview output for several cycles.
-2. Set `PREVIEW_MODE=false`.
+2. Set `PREVIEW_MODE=false` explicitly (config loader defaults to `true` when unset).
 3. Run daemon (cron-driven):
 
 ```bash
 bun run start
 ```
 
-`Bun.cron` registers `CRON_EXPRESSION`; each tick runs one cycle with overlap protection.
+`Bun.cron` registers `CRON_EXPRESSION`; each tick runs one cycle with overlap protection. With `DRIFT_TRIGGER_ENABLED=true`, a drift poll also invokes `runCycle` when any vault exceeds `policy.driftBandPct`, using the same mutex.
 
 ## Clear execution hold
 

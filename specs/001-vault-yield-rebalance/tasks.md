@@ -5,6 +5,8 @@
 
 **Tests**: Constitution requires unit tests (`tests/unit/`) and integration tests (`tests/integration/`) for all `src/` production changes. Integration tests are gated on `RUN_INTEGRATION_TESTS=true`.
 
+**Task count**: T001–T072 (72 tasks).
+
 **Organization**: Tasks grouped by user story for independent implementation and testing.
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -27,7 +29,7 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 - [ ] T002 [P] Create directory scaffold: `src/config/`, `src/chain/`, `src/kamino/`, `src/strategy/`, `src/cycle/`, `src/db/`, `src/alerts/`, `drizzle/`, `data/`
 - [ ] T003 [P] Add `drizzle.config.ts` and `drizzle-kit` devDependency for SQLite migrations to `data/bot.sqlite`
 - [ ] T004 [P] Ensure `data/` and `data/bot.sqlite` are gitignored in `.gitignore`
-- [ ] T005 [P] Extend `.env.example` with vault, policy, preview, cron, timeout, and `DATABASE_URL` vars per `quickstart.md`
+- [ ] T005 [P] Extend `.env.example` with vault, policy, `PREVIEW_MODE=true` default, drift trigger, cron, timeout, and `DATABASE_URL` vars per `quickstart.md`
 - [ ] T006 [P] Add npm scripts in `package.json`: `db:migrate`, `db:generate`, `cli` (`bun run src/cli.ts`)
 - [ ] T007 [P] Add `tests/unit/` and `tests/integration/` placeholders aligned with plan.md test file names
 
@@ -39,9 +41,9 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 **⚠️ CRITICAL**: No user story work until this phase is complete
 
-- [ ] T008 Implement Zod `OperatorConfig`, `VaultConfig`, `RebalancePolicy`, and risk profile presets in `src/config/schema.ts` (mirror `contracts/config.schema.json`)
-- [ ] T009 Implement env → config loader in `src/config/load.ts`; migrate callers off `src/config.ts`
-- [ ] T010 [P] Unit tests for config schema refinements (exactly 3 vaults, caps, timeouts) in `tests/unit/config.test.ts`
+- [ ] T008 Implement Zod `OperatorConfig`, `VaultConfig`, `RebalancePolicy`, risk profile presets, `driftTriggerEnabled`, and `driftPollIntervalMs` in `src/config/schema.ts` (mirror `contracts/config.schema.json`; `previewMode` defaults to `true` when `PREVIEW_MODE` unset)
+- [ ] T009 Implement env → config loader in `src/config/load.ts`; migrate callers off `src/config.ts`; default `previewMode` to `true` if env unset (FR-008)
+- [ ] T010 [P] Unit tests for config schema refinements (exactly 3 vaults, caps, timeouts, preview default true, drift trigger fields) in `tests/unit/config.test.ts`
 - [ ] T011 Define Drizzle tables (`cycles`, `metric_snapshots`, `decision_logs`, `rebalance_actions`, `hold_states`, `policy_snapshots`) in `src/db/schema.ts` per `data-model.md`
 - [ ] T012 Implement SQLite client in `src/db/client.ts` using `bun:sqlite` and `DATABASE_URL`
 - [ ] T013 Implement migration runner in `src/db/migrate.ts` and initial SQL under `drizzle/`
@@ -80,43 +82,17 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ---
 
-## Phase 4: User Story 1 — Automated yield-aware rebalancing (Priority: P1)
+## Phase 4: User Story 4 — Operational guardrails (Priority: P2)
 
-**Goal**: Compare current vs target allocation and execute withdraw-then-deposit batches when warranted (FR-006, FR-007, FR-011 partial)
-
-**Independent Test**: One cycle with known metrics moves capital toward targets when benefit exceeds threshold; skips when yields similar (spec US1)
-
-**Depends on**: Phase 3 (targets and scores)
-
-### Tests for User Story 1
-
-- [ ] T028 [P] [US1] Unit tests for drift comparison and rebalance leg planning in `tests/unit/execute.test.ts`
-- [ ] T029 [P] [US1] Integration test building `withdrawIxs` / `depositIxs` without send in `tests/integration/deposit-ix-build.test.ts`
-
-### Implementation for User Story 1
-
-- [ ] T030 [US1] Implement `reconcilePositions` → `WalletPosition` in `src/kamino/reconcile.ts` (wallet balance + per-vault shares)
-- [ ] T031 [US1] Implement current-vs-target drift and planned `RebalanceAction[]` (withdraw phase then deposit phase) in `src/cycle/execute.ts`
-- [ ] T032 [US1] Wire withdraw phase: `withdrawIxs` + `src/chain/tx.ts` send/confirm in `src/cycle/execute.ts`
-- [ ] T033 [US1] Wire deposit phase after withdrawal phase completes in `src/cycle/execute.ts`
-- [ ] T034 [US1] Enforce configurable allocation tolerance band (e.g. ±2%) before planning moves in `src/cycle/execute.ts`
-- [ ] T035 [US1] On partial leg failure or cycle abort: end cycle immediately, no same-cycle retries (FR-011) in `src/cycle/execute.ts`
-
-**Checkpoint**: Live execution path works end-to-end when called with `PREVIEW_MODE=false` (orchestration added in US3/US5 phases)
-
----
-
-## Phase 5: User Story 4 — Operational guardrails (Priority: P2)
-
-**Goal**: Enforce min improvement, cooldown, min trade size, max vault %, and critical risk exit override (FR-009)
+**Goal**: Enforce min improvement, cooldown, min trade size, max vault %, drift band skip, and critical risk exit override (FR-009) **before** any live execution
 
 **Independent Test**: Below-threshold benefit and within-cooldown scenarios produce skip; critical risk forces exit despite cooldown (spec US4)
 
-**Depends on**: Phase 3–4 (targets and leg planning)
+**Depends on**: Phase 3 (targets and scores)
 
 ### Tests for User Story 4
 
-- [ ] T036 [P] [US4] Unit tests for `shouldRebalance` / warrant logic in `tests/unit/warrant.test.ts`
+- [ ] T036 [P] [US4] Unit tests for `shouldRebalance` / warrant logic (including `driftBandPct` within-band skip) in `tests/unit/warrant.test.ts`
 
 ### Implementation for User Story 4
 
@@ -125,7 +101,33 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 - [ ] T039 [US4] Apply `maxSingleVaultPct` and `cashBufferPct` caps when building final targets in `src/strategy/allocate.ts`
 - [ ] T040 [US4] Persist `policy_snapshots` hash per cycle in `src/db/schema.ts` and write helper in `src/db/policy.ts`
 
-**Checkpoint**: Bot skips churn and respects caps; critical exits bypass cooldown
+**Checkpoint**: Guardrails enforced; no on-chain sends until Phase 5+ and orchestrator wires warrant (Phase 6)
+
+---
+
+## Phase 5: User Story 1 — Automated yield-aware rebalancing (Priority: P1)
+
+**Goal**: Compare current vs target allocation and execute withdraw-then-deposit batches when `shouldRebalance` is true (FR-006, FR-007, FR-011 partial)
+
+**Independent Test**: One cycle with known metrics moves capital toward targets when benefit exceeds threshold; skips when yields similar (spec US1)
+
+**Depends on**: Phase 3 (targets and scores), Phase 4 (warrant / guardrails)
+
+### Tests for User Story 1
+
+- [ ] T028 [P] [US1] Unit tests for leg planning (only when warrant true) in `tests/unit/execute.test.ts`
+- [ ] T029 [P] [US1] Integration test building `withdrawIxs` / `depositIxs` without send in `tests/integration/deposit-ix-build.test.ts`
+
+### Implementation for User Story 1
+
+- [ ] T030 [US1] Implement `reconcilePositions` → `WalletPosition` in `src/kamino/reconcile.ts` (wallet balance + per-vault shares)
+- [ ] T031 [US1] Plan `RebalanceAction[]` (withdraw phase then deposit) in `src/cycle/execute.ts` only when `shouldRebalance()` returns true (Phase 4)
+- [ ] T032 [US1] Wire withdraw phase: `withdrawIxs` + `src/chain/tx.ts` send/confirm in `src/cycle/execute.ts`
+- [ ] T033 [US1] Wire deposit phase after withdrawal phase completes in `src/cycle/execute.ts`
+- [ ] T034 [US1] On partial leg failure or cycle abort: end cycle immediately, no same-cycle retries (FR-011) in `src/cycle/execute.ts`
+- [ ] T035 [US1] Export `computeMaxDriftPct(position, targets)` for FR-013 drift trigger reuse in `src/kamino/reconcile.ts` or `src/strategy/warrant.ts`
+
+**Checkpoint**: Execution modules ready; **no live mainnet txs until Phase 6 orchestrator + explicit `PREVIEW_MODE=false`** (see quickstart)
 
 ---
 
@@ -135,7 +137,7 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 **Independent Test**: `PREVIEW_MODE=true` produces full decision record with no on-chain txs; next cycle reconciles after simulated partial failure (spec US3)
 
-**Depends on**: Phase 4–5
+**Depends on**: Phase 4–5 (warrant before execute; orchestrator wires both)
 
 ### Tests for User Story 3
 
@@ -157,7 +159,7 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 ## Phase 7: User Story 5 — Resilience and alerting (Priority: P3)
 
-**Goal**: Dependency vs execution holds, stale data / RPC timeouts, alerts, cron scheduling (FR-012, FR-019–FR-022)
+**Goal**: Dependency vs execution holds, stale data / RPC timeouts, alerts, cron + drift scheduling (FR-012, FR-013, FR-019–FR-022)
 
 **Independent Test**: Stale metrics → dependency hold, no trade; 3 failing cycles → execution hold until `ack-hold` (spec US5)
 
@@ -167,6 +169,7 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 
 - [ ] T049 [P] [US5] Unit tests for hold state machine (dependency auto-resume vs execution ack) in `tests/unit/cycle-hold.test.ts`
 - [ ] T050 [P] [US5] Unit tests for cycle timeout abort and consecutive failure counter in `tests/unit/cycle-timeout.test.ts`
+- [ ] T071 [P] [US5] Unit tests for drift trigger (enabled/disabled, band exceeded, mutex with cron) in `tests/unit/drift-trigger.test.ts`
 
 ### Implementation for User Story 5
 
@@ -176,10 +179,11 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 - [ ] T054 [US5] Implement `acknowledgeExecutionHold` CLI (`bun run src/cli.ts ack-hold`) in `src/cli.ts`
 - [ ] T055 [US5] Enforce `cycleTimeoutMs` (default 3 min) via `AbortSignal` in `src/cycle/runner.ts`
 - [ ] T056 [US5] Implement structured alert emission per `contracts/alerts.md` in `src/alerts/emit.ts`
-- [ ] T057 [US5] Register `Bun.cron` with `CRON_EXPRESSION` and `cycleInFlight` mutex in `src/index.ts`
+- [ ] T072 [US5] Implement `startDriftTrigger(ctx)` in `src/cycle/drift-trigger.ts` (FR-013): when `driftTriggerEnabled`, poll reconcile + `computeMaxDriftPct`; invoke `runCycle` if drift > `policy.driftBandPct`
+- [ ] T057 [US5] Register `Bun.cron` with `CRON_EXPRESSION` and `startDriftTrigger` when enabled; share `cycleInFlight` mutex in `src/index.ts`
 - [ ] T058 [US5] Optional `ALERT_WEBHOOK_URL` POST (non-blocking) in `src/alerts/emit.ts`
 
-**Checkpoint**: Daemon runs on cron; holds and alerts behave per FR-019/FR-021
+**Checkpoint**: Daemon runs on cron (+ optional drift poll); holds and alerts behave per FR-019/FR-021
 
 ---
 
@@ -229,8 +233,8 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 | 1 Setup | — | Tooling, dirs, deps |
 | 2 Foundational | 1 | Config, DB, chain, vault adapter |
 | 3 US2 | 2 | Risk scores + targets |
-| 4 US1 | 3 | Withdraw/deposit execution |
-| 5 US4 | 3, 4 | Warrant / guardrails |
+| 4 US4 | 3 | Warrant / guardrails |
+| 5 US1 | 3, 4 | Withdraw/deposit execution |
 | 6 US3 | 4, 5 | `runCycle`, preview, logs |
 | 7 US5 | 6 | Cron, holds, alerts |
 | 8 US6 | 3 | Backtest |
@@ -239,24 +243,25 @@ Single-project layout per plan.md: `src/`, `tests/`, `drizzle/`, `data/` at repo
 ### User Story Dependencies
 
 - **US2 (P1)**: After Foundational — no other story dependencies
-- **US1 (P1)**: After US2 (needs scores/targets)
-- **US4 (P2)**: After US2; integrates with US1 leg planning
-- **US3 (P2)**: After US1 + US4 (orchestrates full cycle)
+- **US4 (P2)**: After US2 (warrant before execution)
+- **US1 (P1)**: After US2 + US4 (execution gated by `shouldRebalance`)
+- **US3 (P2)**: After US4 + US1 (orchestrates full cycle)
 - **US5 (P3)**: After US3 (`runCycle` host)
 - **US6 (P3)**: After US2 strategy; parallel to US5 once metrics DB exists
 
 ### Within Each User Story
 
 - Tests written to fail before or alongside implementation
-- Strategy (US2) before execution (US1)
-- Orchestration (US3) before scheduling/holds (US5)
+- Strategy (US2) → guardrails (US4) → execution (US1)
+- Orchestration (US3) before scheduling/holds/drift trigger (US5)
 
 ### Parallel Opportunities
 
 - **Phase 1**: T002–T007 marked [P]
 - **Phase 2**: T010, T014–T015, T018 in parallel after T008–T009
 - **Phase 3**: T020–T021, T027 in parallel
-- **Phase 4**: T028–T029 in parallel
+- **Phase 4**: T036 in parallel
+- **Phase 5**: T028–T029 in parallel
 - **After Phase 2**: US2 and DB metric import (T060–T061) can start early for US6
 - **Phase 9**: T065, T070 in parallel
 
@@ -276,42 +281,45 @@ src/strategy/allocate.ts  # sequential: allocate depends on risk scores
 
 ---
 
-## Parallel Example: User Story 1
+## Parallel Example: User Story 4 → User Story 1
 
 ```bash
+# Phase 4 first:
+tests/unit/warrant.test.ts
+src/strategy/warrant.ts
+
+# Phase 5 then:
 tests/unit/execute.test.ts
 tests/integration/deposit-ix-build.test.ts
-
-# Then sequentially:
-src/kamino/reconcile.ts → src/cycle/execute.ts (withdraw phase → deposit phase)
+src/kamino/reconcile.ts → src/cycle/execute.ts (warrant check → withdraw → deposit)
 ```
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (User Stories 2 + 1 + 4 + 3 preview)
+### MVP First (User Stories 2 + 4 + 1 + 3 preview)
 
 1. Complete Phase 1–2 (Setup + Foundational)
 2. Complete Phase 3 (US2 scoring/targets)
-3. Complete Phase 4 (US1 execution)
-4. Complete Phase 5 (US4 guardrails)
+3. Complete Phase 4 (US4 guardrails) — **before any live execution**
+4. Complete Phase 5 (US1 execution modules)
 5. Complete Phase 6 (US3 preview + logs) — **STOP and validate** with `PREVIEW_MODE=true`
-6. Deploy/demo only after preview output is trusted
+6. Enable live only after preview trusted and explicit `PREVIEW_MODE=false`
 
 ### Incremental Delivery
 
 | Increment | Stories | Operator value |
 |-----------|---------|----------------|
-| MVP | US2 + US1 + US4 + US3 (preview) | See decisions without risking funds |
-| v1 live | + US5 | Scheduled live rebalance with holds |
+| MVP | US2 + US4 + US1 + US3 (preview) | See decisions without risking funds |
+| v1 live | + US5 | Cron + optional drift trigger; holds |
 | v1.1 | + US6 | Tune policy via backtest |
 
 ### Parallel Team Strategy
 
 1. Team completes Setup + Foundational together
 2. Developer A: US2 strategy + tests
-3. Developer B: Foundational chain/DB (Phase 2) then US1 execution
+3. Developer B: Foundational chain/DB (Phase 2) then US4 warrant, then US1 execution
 4. After US3: Developer C: US5 ops; Developer D: US6 backtest
 
 ---
@@ -319,6 +327,8 @@ src/kamino/reconcile.ts → src/cycle/execute.ts (withdraw phase → deposit pha
 ## Notes
 
 - Existing `src/vault.ts`, `src/config.ts`, `tests/integration/vault.test.ts` are migrated, not rewritten from scratch
-- `PREVIEW_MODE=true` is the default for first production cycles per `quickstart.md`
+- `PREVIEW_MODE` defaults to `true` when unset (FR-008, `config.schema.json`, quickstart)
+- Implement US4 (Phase 4) before enabling live execution (US1 Phase 5)
+- `DRIFT_TRIGGER_ENABLED=false` by default; enable for FR-013 extra cycles
 - Do not add `@solana/web3.js` 1.x; Kit 2.3.x only
 - Commit after each task or logical group; stop at any **Checkpoint** to validate story independently

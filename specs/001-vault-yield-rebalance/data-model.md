@@ -112,7 +112,7 @@ Operator rules (FR-009, FR-014).
 | `maxSingleVaultPct` | number | 50 (profile-dependent) |
 | `minTradeSizeBase` | bigint | economically viable floor |
 | `cooldownMs` | number | e.g. 6h |
-| `driftBandPct` | number | e.g. 2 |
+| `driftBandPct` | number | e.g. 2; FR-013 drift trigger + FR-009 within-band skip |
 | `cashBufferPct` | number | 0–5 |
 | `criticalRiskFloor` | number | 0.2 |
 | `riskWeights` | object | liquidity, utilization, concentration, volatility |
@@ -196,7 +196,9 @@ Immutable audit per cycle (FR-010).
 | `walletAddress` | derived from key |
 | `vaults` | VaultConfig[3] |
 | `policy` | RebalancePolicy |
-| `previewMode` | `PREVIEW_MODE` |
+| `previewMode` | `PREVIEW_MODE`; default **true** if unset (FR-008) |
+| `driftTriggerEnabled` | `DRIFT_TRIGGER_ENABLED`; default false |
+| `driftPollIntervalMs` | `DRIFT_POLL_INTERVAL_MS`; default 300000 (5 min) |
 | `metricsMaxAgeMs` | default 15 min |
 | `rpcTimeoutMs` | default 15 s |
 | `cycleTimeoutMs` | default 3 min |
