@@ -162,6 +162,18 @@ bun install
 bun run db:migrate
 ```
 
+### Database migrations
+
+`drizzle-kit generate` compares `src/db/schema.ts` to the **last snapshot** in `drizzle/meta/`, not to your SQLite file. If that snapshot is empty or stale, generate emits another full `CREATE TABLE` migration. `db:migrate` then fails because `0000_init.sql` already created those tables.
+
+**Workflow when you change the schema:**
+
+1. Edit `src/db/schema.ts`.
+2. Run `bun run db:generate` — expect `No schema changes` when nothing changed; otherwise review the new `drizzle/000N_*.sql` (should be `ALTER`/additive, not duplicate `CREATE TABLE` for existing tables).
+3. Run `bun run db:migrate` (or `bun run start`, which migrates on boot).
+
+`db:generate` runs `db:verify` afterward to catch duplicate init migrations. Use `bun run db:clear` only to wipe local dev data, then `db:migrate` to recreate schema.
+
 ## Scripts
 
 
@@ -172,7 +184,9 @@ bun run db:migrate
 | `bun run cli ack-hold`     | Acknowledge execution hold after repeated tx failures                                          |
 | `bun run cli backtest`     | Historical policy replay (no on-chain txs)                                                     |
 | `bun run db:migrate`       | Apply SQLite migrations                                                                        |
-| `bun run db:generate`      | Generate Drizzle migrations                                                                    |
+| `bun run db:generate`      | Generate Drizzle migrations (then verify metadata)                                             |
+| `bun run db:verify`        | Check snapshots/migrations are consistent (no duplicate init)                                  |
+| `bun run db:clear`         | Delete local SQLite file(s) for `DATABASE_URL`                                                   |
 | `bun test`                 | Unit tests                                                                                     |
 | `bun run test:integration` | Integration tests (requires RPC + vaults)                                                      |
 | `bun run test:e2e`         | Full process smoke test (~15s, gated)                                                          |

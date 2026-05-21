@@ -12,8 +12,9 @@
 		"compile": "bunx --bun tsc --noEmit",
 		"check": "bunx biome check",
 		"format": "bunx biome check --write",
-		"db:generate": "drizzle-kit generate",
-		"db:migrate": "bun run src/db/migrate.ts"
+		"db:generate": "drizzle-kit generate && bun run src/db/verify-migrations.ts",
+		"db:migrate": "bun run src/db/migrate.ts",
+		"db:clear": "bun run src/db/clear.ts"
 	},
 	"dependencies": {
 		"@kamino-finance/klend-sdk": "^7.3.22",
