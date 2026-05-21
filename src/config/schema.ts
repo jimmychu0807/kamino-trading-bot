@@ -137,7 +137,7 @@ export const operatorConfigSchema = z
 		legMaxAttempts: z.number().int().min(1).max(10).default(3),
 		consecutiveFailureThreshold: z.number().int().min(1).default(3),
 		apySpikeGuardMultiple: z.number().min(1).default(3),
-		cronExpression: z.string().min(1).default("0 * * * *"),
+		cronExpression: z.string().min(1).default("*/15 * * * *"),
 		databaseUrl: z.string().min(1).default("./data/bot.sqlite"),
 	})
 	.transform((raw) => {

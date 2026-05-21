@@ -128,7 +128,7 @@ export function loadConfigFromEnv(
 		apySpikeGuardMultiple: env.APY_SPIKE_GUARD_MULTIPLE?.trim()
 			? Number(env.APY_SPIKE_GUARD_MULTIPLE)
 			: 3,
-		cronExpression: env.CRON_EXPRESSION?.trim() || "0 * * * *",
+		cronExpression: env.CRON_EXPRESSION?.trim() || "*/15 * * * *",
 		databaseUrl: env.DATABASE_URL?.trim() || "./data/bot.sqlite",
 	});
 }
