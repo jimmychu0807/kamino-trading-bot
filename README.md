@@ -1,6 +1,116 @@
 # Kamino Vault Yield Rebalancer
 
-TypeScript bot that reallocates capital across three Kamino Earn vaults using risk-adjusted scoring, guardrails, preview mode, and operational holds. Built with Bun, `@kamino-finance/klend-sdk`, and `@solana/kit`.
+Automated TypeScript bot that reallocates capital across three [Kamino Earn](https://kamino.finance) vaults using risk-adjusted scoring, guardrails, preview mode, and operational holds. Built with [Bun](https://bun.com), `[@kamino-finance/klend-sdk](https://github.com/Kamino-Finance/klend-sdk)`, and `[@solana/kit](https://github.com/anza-xyz/kit)`.
+
+## Features
+
+- Scores three vaults on risk-adjusted yield and computes target allocations.
+- Rebalances via withdraw-then-deposit batches through a single operator wallet.
+- Defaults to **preview mode** (no on-chain transactions) until you explicitly enable live execution.
+- Persists every cycle decision, metrics snapshot, and hold state in SQLite.
+- Schedules evaluation on `Bun.cron` with optional drift-triggered extra cycles.
+- Pauses after repeated transaction failures until an operator acknowledges the hold.
+
+> [!IMPORTANT]
+> This bot sends real mainnet transactions when `PREVIEW_MODE=false`. Run several preview cycles and validate decisions before going live.
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph entry["Entry points"]
+    index["src/index.ts<br/>daemon"]
+    cli["src/cli.ts<br/>cycle · ack-hold · backtest"]
+  end
+
+  subgraph config["Configuration"]
+    dotenv[".env"]
+    load["config/load.ts"]
+    schema["config/schema.ts<br/>Zod"]
+  end
+
+  subgraph schedule["Scheduling & concurrency"]
+    cron["schedule-cron.ts<br/>Bun.cron"]
+    drift["drift-trigger.ts<br/>optional poll"]
+    mutex["mutex.ts<br/>single cycle in flight"]
+  end
+
+  subgraph orchestration["Cycle orchestration"]
+    runner["cycle/runner.ts<br/>runCycle"]
+    execute["cycle/execute.ts<br/>withdraw → deposit"]
+    hold["cycle/hold.ts<br/>dependency / execution holds"]
+    backtest["cycle/backtest.ts"]
+  end
+
+  subgraph strategy["Strategy"]
+    metricsUse["metrics snapshots"]
+    risk["strategy/risk.ts"]
+    alloc["strategy/allocate.ts"]
+    warrant["strategy/warrant.ts"]
+    cap["strategy/deployable.ts<br/>MAX_ALLOCATION"]
+  end
+
+  subgraph kamino["Kamino layer"]
+    vault["kamino/vault.ts<br/>KaminoVault"]
+    reconcile["kamino/reconcile.ts"]
+    metrics["kamino/metrics.ts"]
+  end
+
+  subgraph chain["Solana chain"]
+    rpc["chain/rpc.ts"]
+    signer["chain/signer.ts"]
+    tx["chain/tx.ts"]
+  end
+
+  subgraph persist["Persistence & alerts"]
+    db["db/*<br/>Drizzle + SQLite"]
+    alerts["alerts/emit.ts"]
+  end
+
+  solana[("Solana mainnet RPC")]
+  vaults[("3 Kamino Earn vaults")]
+  kaminoApi[("Kamino public API<br/>backtest only")]
+  webhook[("Alert webhook<br/>optional")]
+
+  index --> load
+  cli --> load
+  dotenv --> load
+  load --> schema
+
+  index --> cron
+  index --> drift
+  cron --> mutex
+  drift --> mutex
+  mutex --> runner
+  cli --> runner
+  cli --> backtest
+
+  runner --> metrics
+  runner --> reconcile
+  runner --> risk
+  runner --> alloc
+  runner --> warrant
+  runner --> cap
+  runner --> execute
+  runner --> hold
+  runner --> db
+  runner --> alerts
+
+  metrics --> vault
+  reconcile --> vault
+  execute --> tx
+  vault --> rpc
+  tx --> rpc
+  tx --> signer
+  rpc --> solana
+  vault --> vaults
+  backtest -.-> kaminoApi
+  alerts -.-> webhook
+```
+
+
+
+**Cycle flow (one tick):** load config → check holds → fetch metrics → reconcile wallet/vault positions → score and target allocations → warrant (skip if churn not worth it) → plan legs → execute or preview → log to SQLite and optional webhook.
 
 ## Prerequisites
 
@@ -17,23 +127,29 @@ Copy and edit `.env` from `.env.example` (never commit `.env`):
 cp .env.example .env
 ```
 
+Config the following env:
+- `PRIVATE_KEY` - your Solana wallet where capital is deployed from.
+- `SOLANA_RPC` - Performant RPC endpoint that support calling Solana API `GetProgramAccounts()`.
+
 Key variables:
 
-| Variable | Description |
-|----------|-------------|
-| `SOLANA_RPC` | Mainnet RPC endpoint. Use paid Alchemy or Helius RPC that support calling [`GetProgramAccounts()`](https://solana.com/docs/rpc/http/getprogramaccounts) |
-| `PRIVATE_KEY` | Base58 signing key from which the fund will disperse from |
-| `VAULTS` | Three comma-separated vault addresses |
-| `MAX_ALLOCATION` | Optional cap on **counted wallet input** (token base units, e.g. `10000000` = 10 USDC with 6 decimals). Vault principal is always fully counted; yield above the cap is not clipped. Unset = no cap. |
-| `PREVIEW_MODE` | `true` (default) = no on-chain txs; set `false` explicitly for live |
-| `CRON_EXPRESSION` | `Bun.cron` schedule (default to run every 15 mins) |
-| `DRIFT_TRIGGER_ENABLED` | Optional extra cycles when drift exceeds `driftBandPct` |
-| `RISK_PROFILE` | `conservative` \| `balanced` \| `aggressive` |
-| `METRICS_MAX_AGE_MS` | Stale metrics cutoff (default 15 min) |
-| `APY_SPIKE_GUARD_MULTIPLE` | Skip trading when APY > N× trailing average (default 3) |
-| `RPC_TIMEOUT_MS` / `CYCLE_TIMEOUT_MS` | Per-call and per-cycle limits |
-| `DATABASE_URL` | SQLite path (default `./data/bot.sqlite`) |
-| `ALERT_WEBHOOK_URL` | Optional JSON alert webhook |
+
+| Variable                              | Description                                                                                                                                                                                          |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SOLANA_RPC`                          | Mainnet RPC endpoint. Use paid Alchemy or Helius RPC that support calling `[GetProgramAccounts()](https://solana.com/docs/rpc/http/getprogramaccounts)`                                              |
+| `PRIVATE_KEY`                         | Base58 signing key from which the fund will disperse from                                                                                                                                            |
+| `VAULTS`                              | Three comma-separated vault addresses                                                                                                                                                                |
+| `MAX_ALLOCATION`                      | Optional cap on **counted wallet input** (token base units, e.g. `10000000` = 10 USDC with 6 decimals). Vault principal is always fully counted; yield above the cap is not clipped. Unset = no cap. |
+| `PREVIEW_MODE`                        | `true` (default) = no on-chain txs; set `false` explicitly for live                                                                                                                                  |
+| `CRON_EXPRESSION`                     | `Bun.cron` schedule (default to run every 15 mins)                                                                                                                                                   |
+| `DRIFT_TRIGGER_ENABLED`               | Optional extra cycles when drift exceeds `driftBandPct`                                                                                                                                              |
+| `RISK_PROFILE`                        | `conservative` | `balanced` | `aggressive`                                                                                                                                                           |
+| `METRICS_MAX_AGE_MS`                  | Stale metrics cutoff (default 15 min)                                                                                                                                                                |
+| `APY_SPIKE_GUARD_MULTIPLE`            | Skip trading when APY > N× trailing average (default 3)                                                                                                                                              |
+| `RPC_TIMEOUT_MS` / `CYCLE_TIMEOUT_MS` | Per-call and per-cycle limits                                                                                                                                                                        |
+| `DATABASE_URL`                        | SQLite path (default `./data/bot.sqlite`)                                                                                                                                                            |
+| `ALERT_WEBHOOK_URL`                   | Optional JSON alert webhook                                                                                                                                                                          |
+
 
 See [specs/001-vault-yield-rebalance/quickstart.md](specs/001-vault-yield-rebalance/quickstart.md) for the full operator flow.
 
@@ -46,20 +162,23 @@ bun run db:migrate
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `bun run start` | Cron daemon + optional drift trigger (`src/index.ts`) |
-| `bun run cli cycle` | One rebalance cycle (preview or live per `PREVIEW_MODE`); optional `--max-allocation` override |
-| `bun run cli ack-hold` | Acknowledge execution hold after repeated tx failures |
-| `bun run cli backtest` | Historical policy replay (no on-chain txs) |
-| `bun run db:migrate` | Apply SQLite migrations |
-| `bun run db:generate` | Generate Drizzle migrations |
-| `bun test` | Unit tests |
-| `bun run test:integration` | Integration tests (requires RPC + vaults) |
-| `bun run test:e2e` | Full process smoke test (~30s, gated) |
-| `bun run compile` | Typecheck (`tsc --noEmit`) |
-| `bun run check` | Biome lint/format check |
-| `bun run format` | Biome auto-fix |
+
+| Command                    | Description                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `bun run start`            | Cron daemon + optional drift trigger (`src/index.ts`)                                          |
+| `bun run cli cycle`        | One rebalance cycle (preview or live per `PREVIEW_MODE`); optional `--max-allocation` override |
+| `bun run cli ack-hold`     | Acknowledge execution hold after repeated tx failures                                          |
+| `bun run cli backtest`     | Historical policy replay (no on-chain txs)                                                     |
+| `bun run db:migrate`       | Apply SQLite migrations                                                                        |
+| `bun run db:generate`      | Generate Drizzle migrations                                                                    |
+| `bun test`                 | Unit tests                                                                                     |
+| `bun run test:integration` | Integration tests (requires RPC + vaults)                                                      |
+| `bun run test:e2e`         | Full process smoke test (~15s, gated)                                                          |
+| `bun run test:e2e:slow`         | Full process smoke test (~30s, gated)                                                          |
+| `bun run compile`          | Typecheck (`tsc --noEmit`)                                                                     |
+| `bun run check`            | Biome lint/format check                                                                        |
+| `bun run format`           | Biome auto-fix                                                                                 |
+
 
 ## First preview cycle
 
@@ -100,6 +219,9 @@ After three consecutive cycles with failed transactions:
 bun run cli ack-hold
 ```
 
+> [!TIP]
+> Dependency holds (stale metrics, RPC timeouts) clear automatically when checks pass. Execution holds after repeated tx failures require `ack-hold`.
+
 ## Testing
 
 ```bash
@@ -111,9 +233,11 @@ bun run compile
 bun test
 # Integration test
 bun test:integration
-# End-to-end test, take the longest time among the three tests
+# End-to-end test, take ~15s
 bun test:e2e
 ```
+
+Integration and e2e tests require `RUN_INTEGRATION_TESTS=true` / `RUN_E2E_TESTS=true` and a configured RPC (see `.env.example`).
 
 ## Dependency versions
 
@@ -151,10 +275,11 @@ specs/001-vault-yield-rebalance/   # Feature spec, plan, quickstart
 
 ## Spec Kit
 
-Feature design lives under `specs/001-vault-yield-rebalance/`. Governance: [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
+Feature design lives under `specs/001-vault-yield-rebalance/`. Governance: `[.specify/memory/constitution.md](.specify/memory/constitution.md)`.
 
 ## Security
 
 - Do not commit `.env`, private keys, or `data/bot.sqlite`.
 - Default to preview mode; enable live only after validating decisions.
 - Integration and daemon runs use real mainnet RPC.
+
