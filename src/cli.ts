@@ -1,5 +1,6 @@
 import { createRpcClients } from "./chain/rpc.ts";
 import { createSignerFromPrivateKey } from "./chain/signer.ts";
+import { printCliHelp, printCommandHelp, stripHelpFlags, wantsHelp } from "./cli/help.ts";
 import { parseCycleCommandOptions, parseRunCommandOptions } from "./cli/parse-args.ts";
 import { loadConfigFromEnv, withMaxAllocationOverride } from "./config/load.ts";
 import { runBacktest } from "./cycle/backtest.ts";
@@ -128,23 +129,38 @@ async function runBot(argv: string[]): Promise<void> {
 	console.log(JSON.stringify({ event: "bot_stop" }));
 }
 
-function printUsage(): void {
-	console.error("Usage:");
-	console.error("  bun run src/cli.ts [cycle] [--max-allocation=<base-units>]");
-	console.error("  bun run src/cli.ts cycle -m <base-units>");
-	console.error("  bun run src/cli.ts run [runForSecs] [cycleIntervalSecs]");
-	console.error("  bun run src/cli.ts run --run-for-secs=<n> [--cycle-interval-secs=<n>]");
-	console.error("  bun run src/cli.ts ack-hold");
-	console.error("  bun run src/cli.ts backtest [--start=ISO] [--end=ISO] [--import]");
-	console.error("");
-	console.error("  runForSecs: stop after N seconds (default: run until SIGINT/SIGTERM)");
-	console.error(
-		"  cycleIntervalSecs: rebalance every N seconds (default: CRON_EXPRESSION from .env)",
-	);
+const rawArgv = process.argv.slice(2);
+
+function resolveCommand(argv: string[]): { command: string | undefined; restArgv: string[] } {
+	if (argv.length === 0) {
+		return { command: undefined, restArgv: [] };
+	}
+	const first = argv[0];
+	if (first === "--help" || first === "-h") {
+		return { command: undefined, restArgv: [] };
+	}
+	const knownCommands = new Set(["cycle", "run", "ack-hold", "backtest"]);
+	if (knownCommands.has(first)) {
+		return { command: first, restArgv: stripHelpFlags(argv.slice(1)) };
+	}
+	return { command: undefined, restArgv: stripHelpFlags(argv) };
 }
 
-const command = process.argv[2];
-const restArgv = process.argv.slice(3);
+if (
+	wantsHelp(rawArgv) &&
+	(rawArgv.length === 0 || rawArgv[0] === "--help" || rawArgv[0] === "-h")
+) {
+	printCliHelp();
+	process.exit(0);
+}
+
+const { command, restArgv } = resolveCommand(rawArgv);
+
+if (wantsHelp(rawArgv)) {
+	const helpCommand = command ?? "cycle";
+	printCommandHelp(helpCommand);
+	process.exit(0);
+}
 
 try {
 	if (command === "run") {
@@ -157,7 +173,7 @@ try {
 		await runOneCycle(restArgv);
 	} else {
 		console.error(`Unknown command: ${command}`);
-		printUsage();
+		console.error("Run `bun run cli --help` for usage.");
 		process.exit(1);
 	}
 } catch (error) {

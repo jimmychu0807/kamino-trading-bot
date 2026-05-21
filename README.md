@@ -176,11 +176,14 @@ bun run db:migrate
 
 ## Scripts
 
+Run `bun run cli --help` for the full command reference (same text as below).
 
 | Command                    | Description                                                                                    |
 | -------------------------- | ---------------------------------------------------------------------------------------------- |
 | `bun run start`            | Cron daemon + optional drift trigger (`src/index.ts`)                                          |
+| `bun run cli --help`       | Print CLI usage, commands, and flags                                                           |
 | `bun run cli cycle`        | One rebalance cycle (preview or live per `PREVIEW_MODE`); optional `--max-allocation` override |
+| `bun run cli run`          | Trading bot daemon (cron or fixed interval; optional time limits)                              |
 | `bun run cli ack-hold`     | Acknowledge execution hold after repeated tx failures                                          |
 | `bun run cli backtest`     | Historical policy replay (no on-chain txs)                                                     |
 | `bun run db:migrate`       | Apply SQLite migrations                                                                        |
@@ -195,6 +198,78 @@ bun run db:migrate
 | `bun run check`            | Biome lint/format check                                                                        |
 | `bun run format`           | Biome auto-fix                                                                                 |
 
+## CLI reference
+
+```bash
+bun run cli --help
+```
+
+Subcommand-specific help: `bun run cli cycle --help`, `bun run cli run --help`, etc.
+
+All commands load `.env` (see [Environment](#environment)). With `PREVIEW_MODE=true` (default), `cycle` and `run` log planned legs without sending transactions.
+
+### `cycle` — one rebalance cycle
+
+Default when no subcommand is given (`bun run cli` ≡ `bun run cli cycle`).
+
+```bash
+bun run cli
+bun run cli cycle
+bun run cli cycle --max-allocation=10000000
+bun run cli cycle -m 10000000
+```
+
+| Option | Description |
+| ------ | ----------- |
+| `--max-allocation=<n>` | Override `MAX_ALLOCATION` for this cycle only (token base units) |
+| `-m <n>` | Alias for `--max-allocation` |
+
+Prints JSON: `cycleId`, `status`, `outcome`, `rationale`, `plannedLegs`, `previewMode`.
+
+### `run` — trading bot daemon
+
+Same engine as `bun run start`, with optional stop time and fixed rebalance interval.
+
+```bash
+bun run cli run
+bun run cli run 3600 900
+bun run cli run --run-for-secs=3600 --cycle-interval-secs=900
+```
+
+| Option / positional | Description |
+| ------------------- | ----------- |
+| `--run-for-secs=<n>`, `--run-for=<n>`, `-t <n>` | Stop after *n* seconds (default: until SIGINT/SIGTERM) |
+| `--cycle-interval-secs=<n>`, `--cycle-interval=<n>`, `-i <n>` | Rebalance every *n* seconds instead of `CRON_EXPRESSION` |
+| `<runForSecs>` | First positional → `--run-for-secs` |
+| `[cycleIntervalSecs]` | Second positional → `--cycle-interval-secs` |
+
+When `cycle-interval-secs` is omitted, scheduling uses `CRON_EXPRESSION` from `.env`.
+
+### `ack-hold` — clear execution hold
+
+```bash
+bun run cli ack-hold
+```
+
+Clears the hold after three consecutive cycles with failed transactions. Exit code `1` if no active hold. Dependency holds clear automatically when checks pass.
+
+### `backtest` — historical policy replay
+
+No on-chain transactions; `PRIVATE_KEY` is loaded but unused.
+
+```bash
+bun run cli backtest
+bun run cli backtest --import
+bun run cli backtest --import --start=2025-01-01T00:00:00.000Z --end=2025-06-01T00:00:00.000Z
+```
+
+| Flag | Description |
+| ---- | ----------- |
+| `--import` | Fetch Kamino metrics history for all `VAULTS` and persist to SQLite before replay |
+| `--start=<ISO-8601>` | Lower bound for API fetch and/or DB load |
+| `--end=<ISO-8601>` | Upper bound for API fetch and/or DB load |
+
+See [Backtesting](#backtesting) for workflow and report fields.
 
 ## First preview cycle
 
@@ -320,15 +395,7 @@ Re-run step 2 after changing `RISK_PROFILE` or other policy env vars to compare 
 | `relativeImprovementPct` | Strategy vs baseline (see `summary` for one-line stats) |
 | `stepsDetail` | Per-timestep returns and warrant `reason` |
 
-### CLI flags
-
-| Flag | Description |
-| ---- | ----------- |
-| `--import` | Fetch Kamino metrics history for all `VAULTS` and persist to SQLite before replay |
-| `--start=<ISO-8601>` | Lower bound for API fetch and/or DB load |
-| `--end=<ISO-8601>` | Upper bound for API fetch and/or DB load |
-
-Equivalent: `bun run src/cli.ts backtest [--start=ISO] [--end=ISO] [--import]`.
+Backtest flags are documented in [CLI reference → backtest](#backtest--historical-policy-replay).
 
 Implementation: `src/cycle/backtest.ts`, `src/kamino/metrics-history.ts`, `src/db/metrics.ts`.
 
@@ -422,7 +489,7 @@ Expect `@solana/kit@2.3.x` aligned with `@kamino-finance/klend-sdk` (see `packag
 ```text
 src/
 ├── index.ts           # Daemon entry (cron + drift trigger)
-├── cli.ts             # cycle | ack-hold | backtest | daemon
+├── cli.ts             # cycle | run | ack-hold | backtest (`bun run cli --help`)
 ├── config/
 │   ├── schema.ts      # Zod operator config
 │   └── load.ts        # Env → config
