@@ -25,8 +25,8 @@ VAULTS=addr1,addr2,addr3
 # Safety: start in preview
 PREVIEW_MODE=true
 
-# Scheduling (hourly UTC)
-CRON_EXPRESSION=0 * * * *
+# Scheduling (every 15 minutes; omit CRON_EXPRESSION to use same default)
+CRON_EXPRESSION=*/15 * * * *
 
 # Policy
 RISK_PROFILE=balanced

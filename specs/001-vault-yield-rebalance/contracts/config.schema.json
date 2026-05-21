@@ -60,7 +60,11 @@
 			"default": 3,
 			"description": "Skip trading when vault APY exceeds this multiple of trailing average"
 		},
-		"cronExpression": { "type": "string", "default": "0 * * * *" },
+		"cronExpression": {
+			"type": "string",
+			"default": "*/15 * * * *",
+			"description": "Bun.cron schedule; default every 15 minutes when CRON_EXPRESSION unset"
+		},
 		"maxAllocationBase": {
 			"type": "string",
 			"pattern": "^[0-9]+$",

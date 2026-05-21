@@ -70,11 +70,11 @@
 
 ## R5: Scheduling — Bun.cron
 
-**Decision**: `Bun.cron` for primary periodic wake (default hourly); optional second cron for drift checks if `DRIFT_CHECK_CRON` set; in-process mutex prevents overlapping cycles.
+**Decision**: `Bun.cron` for primary periodic wake (default every 15 minutes, `*/15 * * * *`); optional drift poll when `DRIFT_TRIGGER_ENABLED` (not a second cron); in-process mutex prevents overlapping cycles.
 
 **Rationale**:
 - User requirement; no separate scheduler process.
-- Spec FR-013: periodic + optional threshold-triggered evaluation — drift band checked at end of each cron tick (and can share hourly tick).
+- Spec FR-013: periodic + optional threshold-triggered evaluation — drift band checked on each scheduled cron tick and on drift polls when enabled.
 
 **Alternatives considered**:
 - **setInterval**: Rejected — no standard cron semantics for operators.

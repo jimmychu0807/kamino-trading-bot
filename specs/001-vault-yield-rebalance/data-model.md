@@ -204,7 +204,7 @@ Immutable audit per cycle (FR-010).
 | `metricsMaxAgeMs` | default 15 min |
 | `rpcTimeoutMs` | default 15 s |
 | `cycleTimeoutMs` | default 3 min |
-| `cronExpression` | default `0 * * * *` |
+| `cronExpression` | `CRON_EXPRESSION`; default `*/15 * * * *` (every 15 minutes) |
 
 All validated via Zod at startup.
 

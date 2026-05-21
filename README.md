@@ -1,6 +1,6 @@
 # Kamino Vault Yield Rebalancer
 
-Automated TypeScript bot that reallocates capital across three [Kamino Earn](https://kamino.finance) vaults using risk-adjusted scoring, guardrails, preview mode, and operational holds. Built with [Bun](https://bun.com), `[@kamino-finance/klend-sdk](https://github.com/Kamino-Finance/klend-sdk)`, and `[@solana/kit](https://github.com/anza-xyz/kit)`.
+Automated TypeScript bot that reallocates capital across three [Kamino Earn](https://kamino.finance) vaults using risk-adjusted scoring, guardrails, preview mode, and operational holds. Built with [Bun](https://bun.com), [`@kamino-finance/klend-sdk`](https://github.com/Kamino-Finance/klend-sdk), and [`@solana/kit`](https://github.com/anza-xyz/kit).
 
 ## Features
 
@@ -10,6 +10,8 @@ Automated TypeScript bot that reallocates capital across three [Kamino Earn](htt
 - Persists every cycle decision, metrics snapshot, and hold state in SQLite.
 - Schedules evaluation on `Bun.cron` with optional drift-triggered extra cycles.
 - Pauses after repeated transaction failures until an operator acknowledges the hold.
+- Config three different `RISK_PROFILE` preset: **conservative**, **balanced**, and **aggresive**. [See below](#risk_profile--how-it-changes-allocation).
+- Supports strategy backtesting. [See below](#backtesting).
 
 > [!IMPORTANT]
 > This bot sends real mainnet transactions when `PREVIEW_MODE=false`. Run several preview cycles and validate decisions before going live.
@@ -199,6 +201,123 @@ Expected: decision log with scores, targets, and planned legs; `status: preview`
 - Caps how much **idle wallet balance** is counted toward allocation, not vault value after deployment.
 - Example with `MAX_ALLOCATION=100000000` (100 USDC): $90 in vaults + $10 reserve → deployable **100M** base units; after yield grows to $120 in vaults + $10 reserve → deployable **130M** (vault growth is never clipped).
 
+## Backtesting
+
+Replay the same allocation and rebalance-warrant logic as live cycles over historical vault metrics — **no on-chain transactions**, no wallet sends. Use this to compare your configured `RISK_PROFILE` against a fixed equal-weight baseline before enabling live trading.
+
+### How it works
+
+```mermaid
+flowchart LR
+  api["Kamino public API<br/>metrics/history"]
+  sqlite[("SQLite<br/>metric_snapshots")]
+  import["--import"]
+  load["loadMetricSnapshots"]
+  align["groupSnapshotsByTimestamp<br/>all 3 vaults per instant"]
+  sim["simulateBacktestSteps<br/>chronological replay"]
+  report["JSON BacktestReport"]
+
+  api --> import --> sqlite
+  sqlite --> load --> align --> sim --> report
+```
+
+1. **Fetch (optional)** — With `--import`, the bot calls `GET https://api.kamino.finance/kvaults/vaults/{vault}/metrics/history` for each address in `VAULTS`, optionally filtered by `--start` / `--end` (ISO-8601). Responses are parsed into `VaultMetricsSnapshot` rows (APY, TVL, reserve weights, trailing yield volatility).
+2. **Persist** — Imported points are appended to the `metric_snapshots` table in `DATABASE_URL` (same SQLite DB as live cycles; run `bun run db:migrate` first).
+3. **Load & align** — Snapshots are read from SQLite, filtered by vault list and date window, then grouped by `capturedAt`. Only timestamps where **all three** configured vaults have a row are kept (partial instants are skipped).
+4. **Replay consecutively** — For each aligned timestep in order, the bot runs `computeTargetsFromSnapshots` → `shouldRebalance` (drift, cooldown, min improvement, critical-risk rules) → updates simulated allocations when warranted → accrues period risk-adjusted return. The last timestep uses a 24h synthetic interval when there is no next point.
+5. **Report** — Prints JSON comparing **strategy** cumulative risk-adjusted return vs an **equal-weight** baseline that never rebalances.
+
+Live preview cycles do not populate `metric_snapshots` today; backtest history comes from `--import` or manual inserts.
+
+### Prerequisites
+
+- `.env` with `VAULTS` (three comma-separated addresses) and `DATABASE_URL` (default `./data/bot.sqlite`)
+- `bun run db:migrate` applied
+- Network access when using `--import` (Kamino public API only; no Solana RPC required for import/replay)
+
+`PRIVATE_KEY` is still loaded from env by the CLI but is not used during backtest.
+
+### One-shot: import and replay
+
+Fetch history, write to SQLite, then run the simulation in a single command:
+
+```bash
+bun run cli backtest --import
+```
+
+Limit the API window (recommended for faster runs):
+
+```bash
+bun run cli backtest --import --start=2025-01-01T00:00:00.000Z --end=2025-06-01T00:00:00.000Z
+```
+
+### Two-step: import once, replay many times
+
+**1. Import historical metrics into SQLite**
+
+```bash
+bun run cli backtest --import --start=2025-01-01T00:00:00.000Z --end=2025-06-01T00:00:00.000Z
+```
+
+**2. Replay from stored rows** (no API calls; uses whatever is already in `metric_snapshots`)
+
+```bash
+bun run cli backtest
+```
+
+Same date filters apply to the DB query:
+
+```bash
+bun run cli backtest --start=2025-03-01T00:00:00.000Z --end=2025-05-01T00:00:00.000Z
+```
+
+Re-run step 2 after changing `RISK_PROFILE` or other policy env vars to compare presets against the same imported history. Re-importing the same window appends rows (duplicates at the same instant are collapsed per vault when grouping).
+
+### Example output
+
+```json
+{
+  "start": "2025-01-15T00:00:00.000Z",
+  "end": "2025-05-30T00:00:00.000Z",
+  "steps": 42,
+  "rebalanceCount": 7,
+  "strategyCumulativeRiskAdjustedReturn": 0.0412,
+  "equalWeightCumulativeRiskAdjustedReturn": 0.0381,
+  "relativeImprovementPct": 8.14,
+  "summary": "steps=42; rebalances=7; strategy_risk_adj_return=0.041200; ...",
+  "stepsDetail": [
+    {
+      "timestamp": "2025-01-15T00:00:00.000Z",
+      "strategyReturn": 0.00098,
+      "baselineReturn": 0.00095,
+      "rebalanced": false,
+      "reason": "drift within band"
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+| ----- | ------- |
+| `steps` | Aligned timesteps replayed (all three vaults present) |
+| `rebalanceCount` | Simulated rebalances that passed warrant checks |
+| `strategyCumulativeRiskAdjustedReturn` | Your policy with dynamic targets |
+| `equalWeightCumulativeRiskAdjustedReturn` | Fixed ⅓ deployable split, never trades |
+| `relativeImprovementPct` | Strategy vs baseline (see `summary` for one-line stats) |
+| `stepsDetail` | Per-timestep returns and warrant `reason` |
+
+### CLI flags
+
+| Flag | Description |
+| ---- | ----------- |
+| `--import` | Fetch Kamino metrics history for all `VAULTS` and persist to SQLite before replay |
+| `--start=<ISO-8601>` | Lower bound for API fetch and/or DB load |
+| `--end=<ISO-8601>` | Upper bound for API fetch and/or DB load |
+
+Equivalent: `bun run src/cli.ts backtest [--start=ISO] [--end=ISO] [--import]`.
+
+Implementation: `src/cycle/backtest.ts`, `src/kamino/metrics-history.ts`, `src/db/metrics.ts`.
+
 ## Live rebalancing
 
 1. Run several preview cycles and confirm skip/trade decisions look correct.
@@ -208,8 +327,43 @@ Expected: decision log with scores, targets, and planned legs; `status: preview`
 ```bash
 bun run start
 ```
-
 `Bun.cron` runs one cycle per tick with overlap protection. With `DRIFT_TRIGGER_ENABLED=true`, a drift poll can trigger additional cycles when allocation drift exceeds `policy.driftBandPct`.
+
+### `RISK_PROFILE` — how it changes allocation
+
+Preset values (the behavioral knobs):
+
+| Field | conservative | balanced | aggressive |
+|-------|-------------|----------|------------|
+| `maxSingleVaultPct` | 40% | 50% | 60% |
+| `cashBufferPct` | 5% | 3% | 0% |
+| `criticalRiskFloor` | 0.25 | 0.20 | 0.15 |
+| `minImprovementBps` | 35 | 25 | 15 |
+| `cooldownMs` | 6h | 6h | 4h |
+| `driftBandPct` | 2% | 2% | 3% |
+| `riskWeights` | more liquidity | balanced | more volatility |
+
+Where it affects the runtime behavior:
+
+**Target allocation (`src/strategy/allocate.ts` + `risk.ts`):**
+
+- **`riskWeights`** → composite safety score per vault (`computeRiskScore` in `risk.ts`).
+- **`criticalRiskFloor`** → vault marked `critical` when composite &lt; floor; critical vaults get **zero** attractiveness weight (no new allocation toward them).
+- **`cashBufferPct`** → `deployablePct = 100 - cashBufferPct` (conservative keeps more unallocated).
+- **`maxSingleVaultPct`** → per-vault cap in `distributeWithCaps` / `applyPolicyCaps`.
+
+**Whether to trade (`src/strategy/warrant.ts`):**
+
+- **`driftBandPct`** — skip if current vs target drift ≤ band.
+- **`cooldownMs`** — skip if last rebalance was too recent.
+- **`minImprovementBps`** — skip if expected yield improvement is too small.
+- Critical-risk exit logic uses scores from the same profile-driven risk floor.
+
+**Drift trigger (`src/cycle/drift-trigger.ts`):** uses `policy.driftBandPct` (2% vs 3% for aggressive) to decide extra cycles.
+
+**Net effect:** conservative = lower caps, more cash buffer, stricter risk floor (fewer “safe” vaults), higher bar to rebalance; aggressive = opposite.
+
+`RISK_PROFILE` does **not** change which vaults you configure in `VAULTS` — only policy/scoring/allocation/trade gating.
 
 ## Clear execution hold
 

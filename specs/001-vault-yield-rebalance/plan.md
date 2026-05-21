@@ -28,7 +28,7 @@ Build a long-running Bun daemon that periodically evaluates three Kamino Earn va
 - Mainnet txs only when `PREVIEW_MODE=false` and not in hold
 - Withdraw-then-deposit sequencing; no same-cycle retry after partial success
 
-**Scale/Scope**: Single operator wallet; hourly cron default; P1–P3 features per spec priority table
+**Scale/Scope**: Single operator wallet; 15-minute cron default (`*/15 * * * *`); P1–P3 features per spec priority table
 
 ## Constitution Check
 
