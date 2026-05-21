@@ -7,6 +7,7 @@
 		"cli": "bun run src/cli.ts",
 		"test": "bun test tests/unit",
 		"test:e2e": "RUN_E2E_TESTS=true bun test tests/e2e",
+		"test:e2e:slow": "RUN_E2E_TESTS=true E2E_SLOW=true bun test tests/e2e",
 		"test:integration": "RUN_INTEGRATION_TESTS=true bun test tests/integration --timeout 10000",
 		"compile": "bunx --bun tsc --noEmit",
 		"check": "bunx biome check",
