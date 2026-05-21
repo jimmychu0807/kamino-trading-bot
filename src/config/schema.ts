@@ -116,6 +116,10 @@ export const rebalancePolicySchema = rebalancePolicyBaseSchema.transform((raw) =
 
 export type RebalancePolicy = z.infer<typeof rebalancePolicySchema>;
 
+const bigintBaseUnitsSchema = z
+	.union([z.string().regex(/^[0-9]+$/), z.bigint()])
+	.transform((v) => (typeof v === "bigint" ? v : BigInt(v)));
+
 export const operatorConfigSchema = z
 	.object({
 		solanaRpc: z.string().url(),
@@ -123,6 +127,7 @@ export const operatorConfigSchema = z
 		walletAddress: solanaAddressSchema.optional(),
 		vaults: z.array(vaultConfigSchema).length(3),
 		policy: rebalancePolicyBaseSchema,
+		maxAllocationBase: bigintBaseUnitsSchema.optional(),
 		previewMode: z.boolean().default(true),
 		driftTriggerEnabled: z.boolean().default(false),
 		driftPollIntervalMs: z.number().int().min(60_000).default(300_000),

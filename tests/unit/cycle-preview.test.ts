@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { parseOperatorConfig } from "../../src/config/schema.ts";
 import { loadDecisionLog, runCycle } from "../../src/cycle/runner.ts";
 import { buildMetricsSnapshot } from "../../src/kamino/metrics.ts";
-import type { WalletPosition } from "../../src/kamino/reconcile.ts";
 import { createTestDb } from "../helpers/test-db.ts";
+import { makeWalletPosition } from "../helpers/wallet-position.ts";
 
 const now = new Date("2026-05-20T12:00:00.000Z");
 
@@ -26,8 +26,7 @@ const config = parseOperatorConfig({
 });
 
 /** Concentrated in lowest-APY vault so rebalancing toward targets raises projected yield. */
-const position: WalletPosition = {
-	walletAddress: "wallet",
+const position = makeWalletPosition({
 	tokenBalance: 0n,
 	vaultShares: [
 		{
@@ -47,7 +46,7 @@ const position: WalletPosition = {
 		},
 	],
 	totalDeployable: 1_000n,
-};
+});
 
 function freshSnapshots() {
 	return [
@@ -108,5 +107,45 @@ describe("runCycle preview path", () => {
 		expect(persisted?.rationale).toContain("Preview mode");
 		expect(persisted?.scores).toBeInstanceOf(Array);
 		expect((persisted?.scores as unknown[]).length).toBe(3);
+	});
+
+	test("applies MAX_ALLOCATION cap to decision log position", async () => {
+		const db = createTestDb();
+		const uncapped = makeWalletPosition({
+			tokenBalance: 50n,
+			vaultShares: [
+				{
+					vaultAddress: "HDsayqAsDWy3QvANGqh2yNraqcD8Fnjgh73Mhb3WRS5E",
+					shares: 1n,
+					valueBase: 90n,
+				},
+			],
+		});
+
+		const result = await runCycle({
+			config: { ...config, maxAllocationBase: 100n },
+			clients: {
+				rpc: {} as never,
+				rpcSubscriptions: {} as never,
+				timeoutMs: 15_000,
+			},
+			signer: { address: "wallet" } as never,
+			db,
+			now,
+			reconcile: async () => uncapped,
+			fetchMetrics: async () => freshSnapshots(),
+		});
+
+		const persisted = await loadDecisionLog(db, result.cycleId);
+		const logged = persisted?.inputs as {
+			position?: {
+				totalOnChain?: string;
+				totalDeployable?: string;
+				walletBalanceCounted?: string;
+			};
+		};
+		expect(logged.position?.totalOnChain).toBe("140");
+		expect(logged.position?.totalDeployable).toBe("100");
+		expect(logged.position?.walletBalanceCounted).toBe("10");
 	});
 });

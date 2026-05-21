@@ -85,6 +85,17 @@ function buildPolicyFromEnv(
 	return policy;
 }
 
+function parseMaxAllocationBase(env: Record<string, string | undefined>): bigint | undefined {
+	const raw = env.MAX_ALLOCATION?.trim();
+	if (!raw) {
+		return undefined;
+	}
+	if (!/^[0-9]+$/.test(raw)) {
+		throw new Error(`Invalid MAX_ALLOCATION env value: ${raw}`);
+	}
+	return BigInt(raw);
+}
+
 export function loadConfigFromEnv(
 	env: Record<string, string | undefined> = process.env,
 ): OperatorConfig {
@@ -105,6 +116,7 @@ export function loadConfigFromEnv(
 		privateKey,
 		vaults: parseVaults(env),
 		policy: buildPolicyFromEnv(env),
+		maxAllocationBase: parseMaxAllocationBase(env),
 		previewMode,
 		driftTriggerEnabled: parseBoolean(env.DRIFT_TRIGGER_ENABLED, false),
 		driftPollIntervalMs: parsePositiveInt(env.DRIFT_POLL_INTERVAL_MS, 300_000),
@@ -130,6 +142,16 @@ export function loadRpcUrl(env: Record<string, string | undefined> = process.env
 		throw new Error("SOLANA_RPC not defined");
 	}
 	return solanaRpc;
+}
+
+export function withMaxAllocationOverride(
+	config: OperatorConfig,
+	override?: bigint,
+): OperatorConfig {
+	if (override === undefined) {
+		return config;
+	}
+	return { ...config, maxAllocationBase: override };
 }
 
 export async function deriveWalletAddress(privateKeyBase58: string): Promise<Address> {

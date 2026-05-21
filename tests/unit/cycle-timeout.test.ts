@@ -3,8 +3,8 @@ import { parseOperatorConfig } from "../../src/config/schema.ts";
 import { getActiveExecutionHold, getLatestConsecutiveFailureCount } from "../../src/cycle/hold.ts";
 import { runCycle } from "../../src/cycle/runner.ts";
 import { buildMetricsSnapshot } from "../../src/kamino/metrics.ts";
-import type { WalletPosition } from "../../src/kamino/reconcile.ts";
 import { createTestDb } from "../helpers/test-db.ts";
+import { makeWalletPosition } from "../helpers/wallet-position.ts";
 
 const now = new Date("2026-05-20T12:00:00.000Z");
 
@@ -27,8 +27,7 @@ const liveConfig = parseOperatorConfig({
 	},
 });
 
-const position: WalletPosition = {
-	walletAddress: "wallet",
+const position = makeWalletPosition({
 	tokenBalance: 0n,
 	vaultShares: [
 		{
@@ -48,7 +47,7 @@ const position: WalletPosition = {
 		},
 	],
 	totalDeployable: 1_000n,
-};
+});
 
 function freshSnapshots() {
 	return [
