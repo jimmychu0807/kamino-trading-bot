@@ -21,11 +21,11 @@ Key variables:
 
 | Variable | Description |
 |----------|-------------|
-| `SOLANA_RPC` | Mainnet RPC endpoint |
-| `PRIVATE_KEY` | Base58 signing key |
+| `SOLANA_RPC` | Mainnet RPC endpoint. Use paid Alchemy or Helius RPC that support calling [`GetProgramAccounts()`](https://solana.com/docs/rpc/http/getprogramaccounts) |
+| `PRIVATE_KEY` | Base58 signing key from which the fund will disperse from |
 | `VAULTS` | Three comma-separated vault addresses |
 | `PREVIEW_MODE` | `true` (default) = no on-chain txs; set `false` explicitly for live |
-| `CRON_EXPRESSION` | `Bun.cron` schedule (default hourly UTC) |
+| `CRON_EXPRESSION` | `Bun.cron` schedule (default to run every 15 mins) |
 | `DRIFT_TRIGGER_ENABLED` | Optional extra cycles when drift exceeds `driftBandPct` |
 | `RISK_PROFILE` | `conservative` \| `balanced` \| `aggressive` |
 | `METRICS_MAX_AGE_MS` | Stale metrics cutoff (default 15 min) |
@@ -91,24 +91,16 @@ bun run cli ack-hold
 ## Testing
 
 ```bash
-bun run format
+# Check syntax and formatting
 bun run check
+# Typecheck
 bun run compile
+# Unit test
 bun test
-```
-
-**Integration tests** (live RPC, read-only):
-
-```bash
-RUN_INTEGRATION_TESTS=true bun test tests/integration
-# or
-bun run test:integration
-```
-
-**E2E** (full bot process; requires `RUN_E2E_TESTS=true`, RPC, key, vaults):
-
-```bash
-bun run test:e2e
+# Integration test
+bun test:integration
+# End-to-end test, take the longest time among the three tests
+bun test:e2e
 ```
 
 ## Dependency versions
