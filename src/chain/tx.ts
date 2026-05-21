@@ -23,6 +23,12 @@ export type SendLegResult = {
 export type SendLegOptions = {
 	maxAttempts?: number;
 	initialBackoffMs?: number;
+	/** Test hook: replace one-shot send (production uses internal send). */
+	sendOnce?: (
+		clients: RpcClients,
+		signer: TransactionSigner,
+		instructions: Instruction[],
+	) => Promise<Signature>;
 };
 
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -42,9 +48,11 @@ export async function buildAndSendInstructions(
 	const initialBackoffMs = options.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS;
 
 	let lastError: unknown;
+	const sendOnce = options.sendOnce ?? sendInstructionsOnce;
+
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		try {
-			const signature = await sendInstructionsOnce(clients, signer, instructions);
+			const signature = await sendOnce(clients, signer, instructions);
 			return { signature, attempts: attempt };
 		} catch (error) {
 			lastError = error;

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const runE2e = Bun.env.RUN_E2E_TESTS === "true";
+const e2eSlow = Bun.env.E2E_SLOW === "true";
 
 function countCycleResults(stdout: string): number {
 	const ids = [...stdout.matchAll(/"cycleId":\s*"([^"]+)"/g)].map((match) => match[1]);
@@ -23,42 +24,58 @@ describe.skipIf(!runE2e)("trading bot CLI run (e2e)", () => {
 		}
 	});
 
-	test("runs preview bot for 30s with 10s rebalance interval", async () => {
-		tempDir = await mkdtemp(join(tmpdir(), "kamino-bot-e2e-"));
-		dbPath = join(tempDir, "bot.sqlite");
+	const testTimeoutMs = e2eSlow ? 60_000 : 30_000;
+	const runForSecs = e2eSlow ? "30" : "12";
+	const cycleIntervalSecs = e2eSlow ? "10" : "4";
 
-		const projectRoot = join(import.meta.dir, "../..");
-		const start = Date.now();
+	test(
+		`runs preview bot for ${runForSecs}s with ${cycleIntervalSecs}s rebalance interval`,
+		async () => {
+			const minElapsedMs = e2eSlow ? 28_000 : 10_000;
+			const maxElapsedMs = e2eSlow ? 45_000 : 20_000;
+			const minCycles = e2eSlow ? 2 : 1;
+			const maxCycles = e2eSlow ? 5 : 4;
 
-		proc = Bun.spawn({
-			cmd: ["bun", "run", "src/cli.ts", "run", "30", "10"],
-			cwd: projectRoot,
-			env: {
-				...process.env,
-				PREVIEW_MODE: "true",
-				DATABASE_URL: dbPath,
-			},
-			stdout: "pipe",
-			stderr: "pipe",
-		});
+			tempDir = await mkdtemp(join(tmpdir(), "kamino-bot-e2e-"));
+			dbPath = join(tempDir, "bot.sqlite");
 
-		const [exitCode, stdout, stderr] = await Promise.all([
-			proc.exited,
-			proc.stdout instanceof ReadableStream ? proc.stdout.text() : Promise.resolve(""),
-			proc.stderr instanceof ReadableStream ? proc.stderr.text() : Promise.resolve(""),
-		]);
-		const elapsedMs = Date.now() - start;
+			const projectRoot = join(import.meta.dir, "../..");
+			const start = Date.now();
 
-		expect(exitCode).toBe(0);
-		expect(elapsedMs).toBeGreaterThanOrEqual(28_000);
-		expect(elapsedMs).toBeLessThan(45_000);
-		expect(stdout).toContain('"event":"bot_start"');
-		expect(stdout).toContain('"previewMode":true');
-		expect(stdout).toContain('"event":"bot_stop"');
-		expect(stderr).not.toContain("CLI error:");
+			proc = Bun.spawn({
+				cmd: ["bun", "run", "src/cli.ts", "run", runForSecs, cycleIntervalSecs],
+				cwd: projectRoot,
+				env: {
+					...process.env,
+					PREVIEW_MODE: "true",
+					DATABASE_URL: dbPath,
+				},
+				stdout: "pipe",
+				stderr: "pipe",
+			});
 
-		const cycleCount = countCycleResults(stdout);
-		expect(cycleCount).toBeGreaterThanOrEqual(2);
-		expect(cycleCount).toBeLessThanOrEqual(5);
-	}, 60_000);
+			const [exitCode, stdout, stderr] = await Promise.all([
+				proc.exited,
+				proc.stdout instanceof ReadableStream ? proc.stdout.text() : Promise.resolve(""),
+				proc.stderr instanceof ReadableStream ? proc.stderr.text() : Promise.resolve(""),
+			]);
+			const elapsedMs = Date.now() - start;
+
+			if (stdout.trim().length > 0) console.log("  stdout:", stdout.trim());
+			if (stderr.trim().length > 0) console.log("  stderr:", stderr);
+
+			expect(exitCode).toBe(0);
+			expect(elapsedMs).toBeGreaterThanOrEqual(minElapsedMs);
+			expect(elapsedMs).toBeLessThan(maxElapsedMs);
+			expect(stdout).toContain('"event":"bot_start"');
+			expect(stdout).toContain('"previewMode":true');
+			expect(stdout).toContain('"event":"bot_stop"');
+			expect(stderr).not.toContain("CLI error:");
+
+			const cycleCount = countCycleResults(stdout);
+			expect(cycleCount).toBeGreaterThanOrEqual(minCycles);
+			expect(cycleCount).toBeLessThanOrEqual(maxCycles);
+		},
+		testTimeoutMs,
+	);
 });
