@@ -133,6 +133,28 @@ describe("loadConfigFromEnv", () => {
 		expect(cfg.previewMode).toBe(false);
 		expect(cfg.policy.profile).toBe("aggressive");
 	});
+
+	test("loads MAX_ALLOCATION from env as bigint base units", () => {
+		const cfg = loadConfigFromEnv({
+			...validEnv,
+			MAX_ALLOCATION: "100000000",
+		});
+		expect(cfg.maxAllocationBase).toBe(100_000_000n);
+	});
+
+	test("omits maxAllocationBase when MAX_ALLOCATION unset", () => {
+		const cfg = loadConfigFromEnv(validEnv);
+		expect(cfg.maxAllocationBase).toBeUndefined();
+	});
+
+	test("rejects invalid MAX_ALLOCATION", () => {
+		expect(() =>
+			loadConfigFromEnv({
+				...validEnv,
+				MAX_ALLOCATION: "not-a-number",
+			}),
+		).toThrow(/MAX_ALLOCATION/);
+	});
 });
 
 describe("loadRpcUrl", () => {

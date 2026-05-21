@@ -1,7 +1,7 @@
 import { createRpcClients } from "./chain/rpc.ts";
 import { createSignerFromPrivateKey } from "./chain/signer.ts";
-import { parseRunCommandOptions } from "./cli/parse-args.ts";
-import { loadConfigFromEnv } from "./config/load.ts";
+import { parseCycleCommandOptions, parseRunCommandOptions } from "./cli/parse-args.ts";
+import { loadConfigFromEnv, withMaxAllocationOverride } from "./config/load.ts";
 import { runBacktest } from "./cycle/backtest.ts";
 import { startTradingBot } from "./cycle/daemon.ts";
 import { acknowledgeExecutionHold } from "./cycle/hold.ts";
@@ -34,8 +34,9 @@ function parseBacktestCommandOptions(argv: string[]): BacktestCommandOptions {
 	return options;
 }
 
-async function runOneCycle(): Promise<void> {
-	const config = loadConfigFromEnv();
+async function runOneCycle(argv: string[]): Promise<void> {
+	const cycleOptions = parseCycleCommandOptions(argv);
+	const config = withMaxAllocationOverride(loadConfigFromEnv(), cycleOptions.maxAllocationBase);
 	runMigrations(config.databaseUrl);
 	const db = createDb(config.databaseUrl);
 	const clients = createRpcClients(config.solanaRpc, config.rpcTimeoutMs);
@@ -60,6 +61,7 @@ async function runOneCycle(): Promise<void> {
 				rationale: result.decisionLog.rationale,
 				plannedLegs: result.actions.length,
 				previewMode: config.previewMode,
+				maxAllocationBase: config.maxAllocationBase?.toString() ?? null,
 			},
 			null,
 			2,
@@ -128,7 +130,8 @@ async function runBot(argv: string[]): Promise<void> {
 
 function printUsage(): void {
 	console.error("Usage:");
-	console.error("  bun run src/cli.ts [cycle]");
+	console.error("  bun run src/cli.ts [cycle] [--max-allocation=<base-units>]");
+	console.error("  bun run src/cli.ts cycle -m <base-units>");
 	console.error("  bun run src/cli.ts run [runForSecs] [cycleIntervalSecs]");
 	console.error("  bun run src/cli.ts run --run-for-secs=<n> [--cycle-interval-secs=<n>]");
 	console.error("  bun run src/cli.ts ack-hold");
@@ -151,7 +154,7 @@ try {
 	} else if (command === "backtest") {
 		await runBacktestCommand(restArgv);
 	} else if (command === "cycle" || !command) {
-		await runOneCycle();
+		await runOneCycle(restArgv);
 	} else {
 		console.error(`Unknown command: ${command}`);
 		printUsage();

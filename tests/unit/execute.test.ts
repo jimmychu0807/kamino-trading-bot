@@ -4,11 +4,10 @@ import {
 	planRebalanceActions,
 	type RebalanceAction,
 } from "../../src/cycle/execute.ts";
-import type { WalletPosition } from "../../src/kamino/reconcile.ts";
 import type { TargetAllocation } from "../../src/strategy/types.ts";
+import { makeWalletPosition } from "../helpers/wallet-position.ts";
 
-const position: WalletPosition = {
-	walletAddress: "wallet",
+const position = makeWalletPosition({
 	tokenBalance: 100n,
 	vaultShares: [
 		{ vaultAddress: "v1", shares: 1n, valueBase: 600n },
@@ -16,7 +15,7 @@ const position: WalletPosition = {
 		{ vaultAddress: "v3", shares: 1n, valueBase: 50n },
 	],
 	totalDeployable: 1_000n,
-};
+});
 
 const targets: TargetAllocation[] = [
 	{

@@ -21,11 +21,12 @@ Key variables:
 
 | Variable | Description |
 |----------|-------------|
-| `SOLANA_RPC` | Mainnet RPC endpoint |
-| `PRIVATE_KEY` | Base58 signing key |
+| `SOLANA_RPC` | Mainnet RPC endpoint. Use paid Alchemy or Helius RPC that support calling [`GetProgramAccounts()`](https://solana.com/docs/rpc/http/getprogramaccounts) |
+| `PRIVATE_KEY` | Base58 signing key from which the fund will disperse from |
 | `VAULTS` | Three comma-separated vault addresses |
+| `MAX_ALLOCATION` | Optional cap on **counted wallet input** (token base units, e.g. `10000000` = 10 USDC with 6 decimals). Vault principal is always fully counted; yield above the cap is not clipped. Unset = no cap. |
 | `PREVIEW_MODE` | `true` (default) = no on-chain txs; set `false` explicitly for live |
-| `CRON_EXPRESSION` | `Bun.cron` schedule (default hourly UTC) |
+| `CRON_EXPRESSION` | `Bun.cron` schedule (default to run every 15 mins) |
 | `DRIFT_TRIGGER_ENABLED` | Optional extra cycles when drift exceeds `driftBandPct` |
 | `RISK_PROFILE` | `conservative` \| `balanced` \| `aggressive` |
 | `METRICS_MAX_AGE_MS` | Stale metrics cutoff (default 15 min) |
@@ -48,7 +49,7 @@ bun run db:migrate
 | Command | Description |
 |---------|-------------|
 | `bun run start` | Cron daemon + optional drift trigger (`src/index.ts`) |
-| `bun run cli cycle` | One rebalance cycle (preview or live per `PREVIEW_MODE`) |
+| `bun run cli cycle` | One rebalance cycle (preview or live per `PREVIEW_MODE`); optional `--max-allocation` override |
 | `bun run cli ack-hold` | Acknowledge execution hold after repeated tx failures |
 | `bun run cli backtest` | Historical policy replay (no on-chain txs) |
 | `bun run db:migrate` | Apply SQLite migrations |
@@ -66,7 +67,18 @@ bun run db:migrate
 PREVIEW_MODE=true bun run cli cycle
 ```
 
-Expected: decision log with scores, targets, and planned legs; `status: preview` or `skipped` — no deposits or withdrawals.
+Override the deployable cap for a single run (token base units; overrides `MAX_ALLOCATION` from `.env`):
+
+```bash
+PREVIEW_MODE=true bun run src/cli.ts cycle --max-allocation=10000000
+```
+
+Expected: decision log with scores, targets, and planned legs; `status: preview` or `skipped` — no deposits or withdrawals. When capped, `inputs.position` includes `totalOnChain` (raw) and `totalDeployable` (effective).
+
+### MAX_ALLOCATION behavior
+
+- Caps how much **idle wallet balance** is counted toward allocation, not vault value after deployment.
+- Example with `MAX_ALLOCATION=100000000` (100 USDC): $90 in vaults + $10 reserve → deployable **100M** base units; after yield grows to $120 in vaults + $10 reserve → deployable **130M** (vault growth is never clipped).
 
 ## Live rebalancing
 
@@ -91,24 +103,16 @@ bun run cli ack-hold
 ## Testing
 
 ```bash
-bun run format
+# Check syntax and formatting
 bun run check
+# Typecheck
 bun run compile
+# Unit test
 bun test
-```
-
-**Integration tests** (live RPC, read-only):
-
-```bash
-RUN_INTEGRATION_TESTS=true bun test tests/integration
-# or
-bun run test:integration
-```
-
-**E2E** (full bot process; requires `RUN_E2E_TESTS=true`, RPC, key, vaults):
-
-```bash
-bun run test:e2e
+# Integration test
+bun test:integration
+# End-to-end test, take the longest time among the three tests
+bun test:e2e
 ```
 
 ## Dependency versions
@@ -132,7 +136,7 @@ src/
 │   └── load.ts        # Env → config
 ├── chain/             # RPC, signer, tx send/confirm
 ├── kamino/            # Vault reads, metrics, reconcile
-├── strategy/          # Risk, allocation, warrant
+├── strategy/          # Risk, allocation, warrant, deployable cap
 ├── cycle/             # runCycle, execute, holds, backtest
 ├── db/                # Drizzle SQLite
 └── alerts/            # Structured alerts + webhook

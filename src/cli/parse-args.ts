@@ -3,10 +3,25 @@ export type RunCommandOptions = {
 	cycleIntervalSecs?: number;
 };
 
+export type CycleCommandOptions = {
+	maxAllocationBase?: bigint;
+};
+
 function parsePositiveSecs(value: string, label: string): number {
 	const n = Number.parseInt(value, 10);
 	if (!Number.isFinite(n) || n <= 0) {
 		throw new Error(`${label} must be a positive integer, got: ${value}`);
+	}
+	return n;
+}
+
+function parsePositiveBigInt(value: string, label: string): bigint {
+	if (!/^[0-9]+$/.test(value)) {
+		throw new Error(`${label} must be a non-negative integer string, got: ${value}`);
+	}
+	const n = BigInt(value);
+	if (n <= 0n) {
+		throw new Error(`${label} must be greater than zero, got: ${value}`);
 	}
 	return n;
 }
@@ -54,6 +69,21 @@ export function parseRunCommandOptions(argv: string[]): RunCommandOptions {
 	}
 	if (positional[1] !== undefined && options.cycleIntervalSecs === undefined) {
 		options.cycleIntervalSecs = parsePositiveSecs(positional[1], "cycle-interval-secs");
+	}
+
+	return options;
+}
+
+/**
+ * Parses `cycle` command options from argv (after the `cycle` subcommand).
+ * `--max-allocation` (alias `-m`) overrides `MAX_ALLOCATION` from env for one cycle.
+ */
+export function parseCycleCommandOptions(argv: string[]): CycleCommandOptions {
+	const options: CycleCommandOptions = {};
+
+	const maxRaw = readFlagValue(argv, "--max-allocation") ?? readFlagValue(argv, "-m");
+	if (maxRaw !== undefined) {
+		options.maxAllocationBase = parsePositiveBigInt(maxRaw, "max-allocation");
 	}
 
 	return options;

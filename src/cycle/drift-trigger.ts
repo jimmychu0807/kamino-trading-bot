@@ -5,6 +5,7 @@ import type { AppDatabase } from "../db/client.ts";
 import { fetchVaultMetricsSnapshots } from "../kamino/metrics.ts";
 import { computeMaxDriftPct, reconcilePositions } from "../kamino/reconcile.ts";
 import { computeTargetsFromSnapshots } from "../strategy/allocate.ts";
+import { applyMaxAllocationCap } from "../strategy/deployable.ts";
 import { isCycleInFlight, withCycleMutex } from "./mutex.ts";
 import { type CycleContext, type CycleResult, runCycle } from "./runner.ts";
 
@@ -45,11 +46,14 @@ export async function pollDriftOnce(
 
 	return withCycleMutex(async () => {
 		const now = new Date();
-		const position = await reconcile({
-			clients: ctx.clients,
-			walletAddress: ctx.signer.address,
-			vaultAddresses,
-		});
+		const position = applyMaxAllocationCap(
+			await reconcile({
+				clients: ctx.clients,
+				walletAddress: ctx.signer.address,
+				vaultAddresses,
+			}),
+			ctx.config.maxAllocationBase,
+		);
 
 		const snapshots = await fetchMetrics(ctx.clients, vaultAddresses, {
 			now,

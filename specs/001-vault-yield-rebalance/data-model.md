@@ -96,9 +96,11 @@ Reconciled on-chain state at cycle start (FR-011).
 | Field | Type | Rules |
 |-------|------|-------|
 | `walletAddress` | Address | Operator wallet |
-| `tokenBalance` | bigint | Deposit asset in wallet |
+| `tokenBalance` | bigint | Deposit asset in wallet (raw on-chain) |
 | `vaultShares` | `{ vaultAddress, shares, valueBase }[]` | Per vault |
-| `totalDeployable` | bigint | tokenBalance + Σ vault values − reserved buffer |
+| `totalOnChain` | bigint | `tokenBalance` + Σ vault `valueBase` (audit) |
+| `walletBalanceCounted` | bigint | Wallet portion used in strategy (may be capped by `maxAllocationBase`) |
+| `totalDeployable` | bigint | Effective deployable: Σ vault values + `walletBalanceCounted` |
 
 ---
 

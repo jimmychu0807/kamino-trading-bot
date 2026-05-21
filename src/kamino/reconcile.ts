@@ -17,6 +17,11 @@ export type WalletPosition = {
 	walletAddress: string;
 	tokenBalance: bigint;
 	vaultShares: VaultSharePosition[];
+	/** Raw on-chain total: vault values + wallet token balance. */
+	totalOnChain: bigint;
+	/** Wallet token balance included in strategy sizing (may be capped). */
+	walletBalanceCounted: bigint;
+	/** Effective deployable capital for allocation (vault + counted wallet). */
 	totalDeployable: bigint;
 };
 
@@ -110,13 +115,16 @@ export async function reconcilePositions(ctx: ReconcileContext): Promise<WalletP
 		vaultShares.push({ vaultAddress, shares, valueBase });
 	}
 
-	const totalDeployable = vaultShares.reduce((sum, share) => sum + share.valueBase, tokenBalance);
+	const vaultTotal = vaultShares.reduce((sum, share) => sum + share.valueBase, 0n);
+	const totalOnChain = vaultTotal + tokenBalance;
 
 	return {
 		walletAddress: ctx.walletAddress,
 		tokenBalance,
 		vaultShares,
-		totalDeployable,
+		totalOnChain,
+		walletBalanceCounted: tokenBalance,
+		totalDeployable: totalOnChain,
 	};
 }
 

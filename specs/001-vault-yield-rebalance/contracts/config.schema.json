@@ -61,6 +61,11 @@
 			"description": "Skip trading when vault APY exceeds this multiple of trailing average"
 		},
 		"cronExpression": { "type": "string", "default": "0 * * * *" },
+		"maxAllocationBase": {
+			"type": "string",
+			"pattern": "^[0-9]+$",
+			"description": "Optional cap on counted wallet input (token base units). Vault value always fully counted; yield above cap is not clipped."
+		},
 		"vaults": {
 			"type": "array",
 			"minItems": 3,

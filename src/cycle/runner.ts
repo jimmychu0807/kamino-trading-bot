@@ -22,6 +22,7 @@ import {
 	type WalletPosition,
 } from "../kamino/reconcile.ts";
 import { computeTargetsFromSnapshots } from "../strategy/allocate.ts";
+import { applyMaxAllocationCap } from "../strategy/deployable.ts";
 import { estimateExpectedImprovementBps } from "../strategy/improvement.ts";
 import type { TargetAllocation } from "../strategy/types.ts";
 import {
@@ -125,6 +126,8 @@ function serializePosition(position: WalletPosition) {
 			shares: share.shares.toString(),
 			valueBase: share.valueBase.toString(),
 		})),
+		totalOnChain: position.totalOnChain.toString(),
+		walletBalanceCounted: position.walletBalanceCounted.toString(),
 		totalDeployable: position.totalDeployable.toString(),
 	};
 }
@@ -309,11 +312,14 @@ export async function runCycle(ctx: CycleContext): Promise<CycleResult> {
 
 		let position: WalletPosition;
 		try {
-			position = await reconcile({
-				clients,
-				walletAddress: signer.address,
-				vaultAddresses,
-			});
+			position = applyMaxAllocationCap(
+				await reconcile({
+					clients,
+					walletAddress: signer.address,
+					vaultAddresses,
+				}),
+				config.maxAllocationBase,
+			);
 		} catch (error) {
 			const reason = dependencyReasonFromError(error);
 			return returnDependencyHold(ctx, {
