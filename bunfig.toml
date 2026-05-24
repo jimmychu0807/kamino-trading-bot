@@ -1,0 +1,4 @@
+env = true
+
+[console]
+depth = 5
