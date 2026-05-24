@@ -1,0 +1,22 @@
+{
+	"name": "kamino-trading-bot-2",
+	"module": "index.ts",
+	"type": "module",
+	"scripts": {
+		"start": "bun run src/index.ts",
+		"check": "bunx --bun @biomejs/biome check",
+		"format": "bunx --bun @biomejs/biome format --write"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.15",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"@kamino-finance/klend-sdk": "^8.0.0",
+		"@solana/kit": "2.3.0",
+		"@solana/spl-token": "0.4.9"
+	}
+}
