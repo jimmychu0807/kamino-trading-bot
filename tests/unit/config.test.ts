@@ -60,11 +60,22 @@ describe("config", () => {
 		expect(() => validateDurationInterval(30, 60)).toThrow();
 	});
 
-	test("rejects wrong vault count", () => {
+	test("accepts 1 to MAX_VAULT_COUNT vaults", () => {
+		withEnv({ VAULT_ADDRESSES: "vault1" });
+		expect(loadConfig().vaultAddresses).toEqual(["vault1"]);
+
+		withEnv({ VAULT_ADDRESSES: "vault1,vault2" });
+		expect(loadConfig().vaultAddresses).toEqual(["vault1", "vault2"]);
+	});
+
+	test("rejects vault count outside 1..MAX_VAULT_COUNT", () => {
+		withEnv({ VAULT_ADDRESSES: " , , " });
+		expect(() => loadConfig()).toThrow("between 1 and 3");
+
 		withEnv({
-			VAULT_ADDRESSES: "vault1,vault2",
+			VAULT_ADDRESSES: "vault1,vault2,vault3,vault4",
 		});
-		expect(() => loadConfig()).toThrow("exactly 3");
+		expect(() => loadConfig()).toThrow("between 1 and 3");
 	});
 
 	test("parses PRIVATE_KEY JSON byte array", () => {

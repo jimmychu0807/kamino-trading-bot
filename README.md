@@ -1,6 +1,6 @@
-# Kamino 3-Vault Yield Rebalance Bot
+# Kamino Multi-Vault Yield Rebalance Bot
 
-A Bun/TypeScript CLI bot that reallocates deposits across three [Kamino Earn (K-Vault)](https://kamino.com/docs) vaults using a proportional-by-APY strategy. It reads configuration from `.env`, runs for a configurable duration, and rebalances on a fixed interval while capping each cycle's moves with `MAX_ALLOCATION`.
+A Bun/TypeScript CLI bot that reallocates deposits across 1–3 [Kamino Earn (K-Vault)](https://kamino.com/docs) vaults using a proportional-by-APY strategy. It reads configuration from `.env`, runs for a configurable duration, and rebalances on a fixed interval while capping each cycle's moves with `MAX_ALLOCATION`.
 
 > [!WARNING]
 > This bot moves real funds on Solana mainnet when `DRY_RUN=false`. Start with `DRY_RUN=true`, verify planned actions in logs, and only use a funded wallet you control.
@@ -31,7 +31,7 @@ bun run start -- --duration 300 --interval 60
 | --- | --- | --- |
 | `SOLANA_RPC` | yes | HTTP RPC URL |
 | `PRIVATE_KEY` | yes | Base58 secret or JSON byte array (solana-keygen format) |
-| `VAULT_ADDRESSES` | yes | Comma-separated **exactly 3** vault pubkeys (same underlying mint) |
+| `VAULT_ADDRESSES` | yes | Comma-separated **1–3** vault pubkeys (same underlying mint) |
 | `MAX_ALLOCATION` | yes | Max token units to move per cycle (e.g. `100` USDC) |
 | `RUN_SECONDS` | no | Total runtime; omit to run indefinitely |
 | `REBALANCE_INTERVAL_SECONDS` | no | Cycle period (default: `900` = 15 min) |
@@ -44,7 +44,7 @@ CLI flags override env:
 bun run src/cli.ts --duration 300 --interval 60
 ```
 
-Validation fails fast if vault count ≠ 3 or `duration <= interval`.
+Validation fails fast if vault count is outside 1–3 or `duration <= interval`.
 
 ## Strategy
 
@@ -89,6 +89,6 @@ tests/
 ## Safety
 
 - Keep `DRY_RUN=true` until you trust the planned actions.
-- All three vaults must share the same underlying token mint.
+- All configured vaults must share the same underlying token mint.
 - v1 sends one transaction per action (withdraw or deposit) for simpler debugging.
 - Farm staking is not enabled in v1 (`farmState: null`).

@@ -45,6 +45,8 @@ describe("bot dry-run e2e", () => {
 						vault,
 						tokenValue: index === 0 ? 200 : 50,
 					})),
+				getLiquidity: async (vaults) =>
+					new Map(vaults.map((vault, index) => [vault, (index + 1) * 1_000_000])),
 				buildDepositIxs: async () => {
 					throw new Error("no chain writes in dry run");
 				},

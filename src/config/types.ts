@@ -3,7 +3,7 @@ export type VaultId = string;
 export type BotConfig = {
 	solanaRpc: string;
 	privateKey: string;
-	vaultAddresses: [VaultId, VaultId, VaultId];
+	vaultAddresses: [VaultId, ...VaultId[]];
 	maxAllocation: number;
 	durationSec: number | null;
 	intervalSec: number;

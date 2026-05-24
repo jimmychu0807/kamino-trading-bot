@@ -12,6 +12,7 @@ import type { VaultId, VaultPosition } from "../config/types.ts";
 
 export interface VaultClient {
 	getPositions(user: Address, vaults: VaultId[]): Promise<VaultPosition[]>;
+	getLiquidity(vaults: VaultId[]): Promise<Map<VaultId, number>>;
 	buildDepositIxs(
 		vault: VaultId,
 		user: TransactionSigner,
@@ -71,6 +72,20 @@ export class KaminoVaultClientAdapter implements VaultClient {
 		}
 
 		return positions;
+	}
+
+	async getLiquidity(vaults: VaultId[]): Promise<Map<VaultId, number>> {
+		const slot = await this.getCurrentSlot();
+		const entries: [VaultId, number][] = [];
+
+		for (const vaultId of vaults) {
+			const { vault } = await this.ensureVault(vaultId);
+			const holdings = await vault.getVaultHoldings(slot);
+			const liquidity = holdings.totalAUMIncludingFees.sub(holdings.pendingFees).toNumber();
+			entries.push([vaultId, liquidity]);
+		}
+
+		return new Map(entries);
 	}
 
 	async buildDepositIxs(

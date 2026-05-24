@@ -36,6 +36,7 @@ describe("BotRunner", () => {
 		const vaultClient: VaultClient = {
 			preloadVaults: async () => {},
 			getPositions: async (_user, vaults) => vaults.map((vault) => ({ vault, tokenValue: 100 })),
+			getLiquidity: async (vaults) => new Map(vaults.map((vault) => [vault, 1000])),
 			buildDepositIxs: async () => [],
 			buildWithdrawIxs: async () => [],
 		};

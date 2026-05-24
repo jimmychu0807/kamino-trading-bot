@@ -2,7 +2,7 @@ import { getBase58Decoder } from "@solana/kit";
 import type { BotConfig, CliOverrides } from "./types.ts";
 
 const DEFAULT_INTERVAL_SEC = 15 * 60;
-const REQUIRED_VAULT_COUNT = 3;
+const MAX_VAULT_COUNT = 3;
 
 function requireEnv(name: string): string {
 	const value = process.env[name]?.trim();
@@ -43,9 +43,9 @@ function parseVaultAddresses(raw: string): BotConfig["vaultAddresses"] {
 		.map((v) => v.trim())
 		.filter(Boolean);
 
-	if (vaults.length !== REQUIRED_VAULT_COUNT) {
+	if (vaults.length < 1 || vaults.length > MAX_VAULT_COUNT) {
 		throw new Error(
-			`VAULT_ADDRESSES must contain exactly ${REQUIRED_VAULT_COUNT} comma-separated vault pubkeys (got ${vaults.length})`,
+			`VAULT_ADDRESSES must contain between 1 and ${MAX_VAULT_COUNT} comma-separated vault pubkeys (got ${vaults.length})`,
 		);
 	}
 

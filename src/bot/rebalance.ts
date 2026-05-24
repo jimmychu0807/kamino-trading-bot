@@ -21,12 +21,15 @@ export async function rebalanceCycle(deps: RebalanceCycleDeps): Promise<void> {
 	console.log(`[rebalance] Starting cycle for vaults: ${vaults.join(", ")}`);
 
 	await vaultClient.preloadVaults(vaults);
-	const apyByVault = await yieldSource.getApys(vaults);
-	const positions = await vaultClient.getPositions(user, vaults);
+	const [apyByVault, positions, liquidityByVault] = await Promise.all([
+		yieldSource.getApys(vaults),
+		vaultClient.getPositions(user, vaults),
+		vaultClient.getLiquidity(vaults),
+	]);
 
 	for (const vault of vaults) {
 		console.log(
-			`[rebalance] ${vault}: APY=${((apyByVault.get(vault) ?? 0) * 100).toFixed(2)}%, position=${positions.find((p) => p.vault === vault)?.tokenValue.toFixed(6) ?? "0"}`,
+			`[rebalance] ${vault}: APY=${((apyByVault.get(vault) ?? 0) * 100).toFixed(2)}%, liquidity=${(liquidityByVault.get(vault) ?? 0).toFixed(6)}, position=${positions.find((p) => p.vault === vault)?.tokenValue.toFixed(6) ?? "0"}`,
 		);
 	}
 
