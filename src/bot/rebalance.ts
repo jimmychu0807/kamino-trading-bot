@@ -1,8 +1,9 @@
 import type { Address, TransactionSigner } from "@solana/kit";
-import type { BotConfig } from "../config/types.ts";
+import type { AllocationTracker, BotConfig } from "../config/types.ts";
 import type { TransactionExecutor } from "../kamino/txExecutor.ts";
 import type { VaultClient } from "../kamino/vaultClient.ts";
 import type { YieldSource } from "../kamino/yieldSource.ts";
+import type { WalletBalanceReader } from "../solana/walletBalances.ts";
 import { formatPlan, planRebalance } from "../strategy/planRebalance.ts";
 
 export type RebalanceCycleDeps = {
@@ -10,21 +11,33 @@ export type RebalanceCycleDeps = {
 	yieldSource: YieldSource;
 	vaultClient: VaultClient;
 	txExecutor: TransactionExecutor;
+	walletBalances: WalletBalanceReader;
+	allocationTracker: AllocationTracker;
 	user: Address;
 	signer: TransactionSigner;
 };
 
 export async function rebalanceCycle(deps: RebalanceCycleDeps): Promise<void> {
-	const { config, yieldSource, vaultClient, txExecutor, user, signer } = deps;
+	const {
+		config,
+		yieldSource,
+		vaultClient,
+		txExecutor,
+		walletBalances,
+		allocationTracker,
+		user,
+		signer,
+	} = deps;
 	const vaults = [...config.vaultAddresses];
 
 	console.log(`[rebalance] Starting cycle for vaults: ${vaults.join(", ")}`);
 
 	await vaultClient.preloadVaults(vaults);
-	const [apyByVault, positions, liquidityByVault] = await Promise.all([
-		yieldSource.getApys(vaults),
+	const [positions, apyByVault, liquidityByVault, balances] = await Promise.all([
 		vaultClient.getPositions(user, vaults),
+		yieldSource.getApys(vaults),
 		vaultClient.getLiquidity(vaults),
+		walletBalances.getBalances(user),
 	]);
 
 	for (const vault of vaults) {
@@ -33,15 +46,23 @@ export async function rebalanceCycle(deps: RebalanceCycleDeps): Promise<void> {
 		);
 	}
 
+	const deployBudget = config.maxAllocation - allocationTracker.allocatedFromReserve;
+	console.log(
+		`[rebalance] Reserve deploy: ${allocationTracker.allocatedFromReserve.toFixed(6)} / ${config.maxAllocation.toFixed(6)} (${Math.max(0, deployBudget).toFixed(6)} remaining)`,
+	);
+
 	const plan = planRebalance({
 		vaults,
-		apyByVault,
 		positions,
+		apyByVault,
+		liquidityByVault,
+		usdcReserve: balances.usdc,
+		allocatedFromReserve: allocationTracker.allocatedFromReserve,
 		maxAllocation: config.maxAllocation,
 		minMoveAmount: config.minMoveAmount,
 	});
 
-	console.log(`[rebalance] Plan: ${formatPlan(plan)}`);
+	console.log(`[rebalance] Plan:\n${formatPlan(plan)}`);
 
 	if (plan.actions.length === 0) {
 		console.log("[rebalance] Nothing to do.");
@@ -60,5 +81,17 @@ export async function rebalanceCycle(deps: RebalanceCycleDeps): Promise<void> {
 				? await vaultClient.buildDepositIxs(action.vault, signer, action.amount)
 				: await vaultClient.buildWithdrawIxs(action.vault, signer, action.amount);
 		await txExecutor.sendInstructions(instructions, label);
+
+		if (action.kind === "deposit") {
+			allocationTracker.allocatedFromReserve = Math.min(
+				config.maxAllocation,
+				allocationTracker.allocatedFromReserve + action.amount,
+			);
+		} else {
+			allocationTracker.allocatedFromReserve = Math.max(
+				0,
+				allocationTracker.allocatedFromReserve - action.amount,
+			);
+		}
 	}
 }

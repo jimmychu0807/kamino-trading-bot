@@ -14,7 +14,20 @@ const BASE_ENV = {
 	MAX_ALLOCATION: "100",
 };
 
+const OPTIONAL_ENV_KEYS = [
+	"RUN_SECONDS",
+	"REBALANCE_INTERVAL_SECONDS",
+	"DRY_RUN",
+	"MIN_MOVE_AMOUNT",
+] as const;
+
 function withEnv(overrides: Record<string, string | undefined>): void {
+	for (const key of OPTIONAL_ENV_KEYS) {
+		if (!(key in overrides)) {
+			delete process.env[key];
+		}
+	}
+
 	for (const [key, value] of Object.entries({ ...BASE_ENV, ...overrides })) {
 		if (value === undefined) {
 			delete process.env[key];
@@ -29,10 +42,9 @@ describe("config", () => {
 		for (const key of Object.keys(BASE_ENV)) {
 			delete process.env[key];
 		}
-		delete process.env.RUN_SECONDS;
-		delete process.env.REBALANCE_INTERVAL_SECONDS;
-		delete process.env.DRY_RUN;
-		delete process.env.MIN_MOVE_AMOUNT;
+		for (const key of OPTIONAL_ENV_KEYS) {
+			delete process.env[key];
+		}
 	});
 
 	test("loads config from env with defaults", () => {

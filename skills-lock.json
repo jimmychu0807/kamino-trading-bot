@@ -6,6 +6,18 @@
 			"sourceType": "github",
 			"skillPath": "skills/create-readme/SKILL.md",
 			"computedHash": "d0ece1b2164ce1376e4ab6e98d6ac079df3a2a94f5f02224362b6a1ce2516ae9"
+		},
+		"kamino": {
+			"source": "sendaifun/skills",
+			"sourceType": "github",
+			"skillPath": "skills/kamino/SKILL.md",
+			"computedHash": "9ac38c24f04caddd5d03b36c744eaff20af77739183e4d54a70fd16500db9590"
+		},
+		"solana-kit": {
+			"source": "sendaifun/skills",
+			"sourceType": "github",
+			"skillPath": "skills/solana-kit/SKILL.md",
+			"computedHash": "1c1a4b47d5a3a6717cd67dbe07db8ea5299e4510f262d672eec7782f21f5deaf"
 		}
 	}
 }

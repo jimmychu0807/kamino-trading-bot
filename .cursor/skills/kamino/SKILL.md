@@ -1,289 +1,1043 @@
 ---
-name: "kamino"
-description: "Kamino is a Solana DeFi protocol for automated yield optimization, borrowing and lending, leveraged positions, and concentrated liquidity vaults. Three product areas — Docs (end-user guides), Buildkit (developer APIs and SDK), and Curators (institutional vault management)."
+name: kamino
+description: Complete guide for Kamino Finance - Solana's leading DeFi protocol for lending, borrowing, liquidity management, and leverage trading. Covers klend-sdk (lending), kliquidity-sdk (automated liquidity strategies), scope-sdk (oracle aggregator), multiply/leverage operations, vaults, and obligation orders.
 ---
 
-> ## Documentation Index
-> Fetch the complete documentation index at: https://kamino.com/docs/llms.txt
-> Use this file to discover all available pages before exploring further.
+# Kamino Finance Development Guide
 
-# Kamino Finance
+Build sophisticated DeFi applications on Solana with Kamino Finance - the comprehensive DeFi protocol offering lending, borrowing, automated liquidity management, leverage trading, and oracle aggregation.
 
-> Solana DeFi protocol for automated yield optimization, borrowing and lending, leveraged positions, and concentrated liquidity vaults. Three product areas — Docs (end-user guides), Buildkit (developer APIs and SDK), and Curators (institutional vault management).
-
-## Capabilities
-
-Kamino Finance is the largest borrowing and lending protocol on Solana, offering four core product lines:
-
-**Multiply** — One-click leveraged yield vaults. Users open positions with automated flash loan mechanics and eMode for capital-efficient exposure to yield-bearing assets (e.g. SOL).
-
-**Borrow/Lend (Klend)** — Lending markets. Users supply collateral to borrow assets or earn interest on deposits. Supports Cross Mode and Isolated Mode, multiple asset tiers, and automated liquidations.
-
-**Liquidity Vaults** — Automated concentrated liquidity strategies on Solana DEXes. Auto-compound, auto-rebalance, and auto-swap handle all position management.
-
-**Earn Vaults (K-Vaults)** — Curated yield vaults that distribute capital across multiple Klend reserves to maximize returns. Accessible to both end users and institutional curators.
-
-Developers integrate via REST API (language-agnostic) or TypeScript SDK (full on-chain control). Institutional operators use the Curators product to create and manage their own lending vaults.
-
-## OpenAPI Specifications
-
-* **Kamino Public API**: [https://api.kamino.finance/openapi/json?openapi=3.0.0](https://api.kamino.finance/openapi/json?openapi=3.0.0)
-  * Vault data, market data, user positions, historical metrics, rewards
-* **Kamino Transaction API (KTX)**: [https://api.kamino.finance/ktx/documentation/json](https://api.kamino.finance/ktx/documentation/json)
-  * Transaction building for deposit, withdraw, borrow, repay — returns unsigned Solana transactions
-
-## Skills
-
-### Earn Vault Operations (Buildkit)
-
-**Vault Data Queries**
-
-* `GET /kvaults/vaults` — List all Kamino Earn vaults
-* `GET /kvaults/vaults/{pubkey}` — Get single vault by address
-* `GET /kvaults/vaults/{pubkey}/metrics` — Current vault metrics (APY, TVL, utilization)
-* `GET /kvaults/vaults/{pubkey}/metrics/history` — Historical vault metrics
-* SDK: `vault.getVaultHoldings()`, `vault.getAPYs()`, `vault.getExchangeRate()`
-
-**User Vault Positions**
-
-* `GET /kvaults/users/{pubkey}/positions` — All user vault positions
-* `GET /kvaults/users/{userPubkey}/positions/{vaultPubkey}` — Single user position
-* `GET /kvaults/users/{userPubkey}/vaults/{vaultPubkey}/pnl` — Current PnL and cost basis
-* `GET /kvaults/users/{pubkey}/transactions` — All vault transactions for user
-
-**Vault Deposit**
-
-* `POST /ktx/kvault/deposit` — Build unsigned deposit transaction
-* `POST /ktx/kvault/deposit-instructions` — Get deposit instructions with lookup tables
-* SDK: `vault.depositIxs(signer, amount)`
-* Tutorial: [https://kamino.com/docs/build/tutorials/earn/earn-and-withdraw](https://kamino.com/docs/build/tutorials/earn/earn-and-withdraw)
-
-**Vault Withdraw**
-
-* `POST /ktx/kvault/withdraw` — Build unsigned withdraw transaction
-* `POST /ktx/kvault/withdraw-instructions` — Get withdraw instructions with lookup tables
-* SDK: `vault.withdrawIxs(signer, shares)`
-
-**Vault Creation (SDK only)**
-
-* SDK: `KaminoManager.createVaultIxs(vaultConfig)` — Initialize new vault
-* Tutorial: [https://kamino.com/docs/build/tutorials/earn/creating-a-vault](https://kamino.com/docs/build/tutorials/earn/creating-a-vault)
-
-### Borrow Market Operations (Buildkit)
-
-**Market Data Queries**
-
-* `GET /v2/kamino-market` — All Kamino Lending markets
-* `GET /kamino-market/{pubkey}/reserves/metrics` — Current reserve metrics (APY, TVL, LTV)
-* `GET /kamino-market/{marketPubkey}/reserves/{reservePubkey}/metrics/history` — Historical reserve metrics
-* SDK: `KaminoMarket.load(rpc, marketAddress)`, `market.getTotalDepositTVL()`
-
-**User Loan Positions**
-
-* `GET /kamino-market/{marketPubkey}/users/{userPubkey}/obligations` — All user obligations
-* `GET /klend/loans/{pubkey}` — Specific loan details
-* SDK: `market.getObligationByWallet(userAddress, new VanillaObligation(PROGRAM_ID))`
-
-**Deposit Collateral**
-
-* `POST /ktx/klend/deposit` — Build unsigned deposit transaction
-* SDK: `KaminoAction.buildDepositTxns(market, amount, mint, signer, new VanillaObligation(PROGRAM_ID))`
-
-**Borrow Assets**
-
-* `POST /ktx/klend/borrow` — Build unsigned borrow transaction
-* SDK: `KaminoAction.buildBorrowTxns(market, amount, mint, signer, new VanillaObligation(PROGRAM_ID))`
-
-**Repay Debt**
-
-* `POST /ktx/klend/repay` — Build unsigned repay transaction
-* SDK: `KaminoAction.buildRepayTxns(market, amount, mint, signer, new VanillaObligation(PROGRAM_ID))`
-
-**Withdraw Collateral**
-
-* `POST /ktx/klend/withdraw` — Build unsigned withdraw transaction
-* SDK: `KaminoAction.buildWithdrawTxns(market, amount, mint, signer, new VanillaObligation(PROGRAM_ID))`
-
-### Multiply Operations (Buildkit)
-
-**Position Health Monitoring**
-
-* `GET /kamino-market/{marketPubkey}/users/{userPubkey}/obligations` — Get all user obligations including multiply positions
-* SDK: `market.getUserObligationsByTag(ObligationTypeTag.Multiply, userAddress)` — Filter obligations by type
-* Metrics: Total Deposit, Total Borrow, Net Value, Leverage, Borrow Limit, Liquidation LTV
-* Guide: [https://kamino.com/docs/build/developers/multiply/data/health-metrics](https://kamino.com/docs/build/developers/multiply/data/health-metrics)
-
-**Flash Loans**
-
-* Requires: `@kamino-finance/klend-sdk`
-* SDK: `getFlashLoanInstructions({...})` — Returns `{ flashBorrowIx, flashRepayIx }` for an uncollateralized loan repaid in the same transaction
-* Guide: [https://kamino.com/docs/build/developers/multiply/flash-loans](https://kamino.com/docs/build/developers/multiply/flash-loans)
-
-**Deposit with xStocks**
-
-* Requires: `@kamino-finance/klend-sdk`
-* SDK: Create leveraged positions through atomic looping
-* Guide: [https://kamino.com/docs/build/developers/multiply/operations/deposit-xstocks](https://kamino.com/docs/build/developers/multiply/operations/deposit-xstocks)
-
-**Repay with xStocks**
-
-* Requires: `@kamino-finance/klend-sdk`
-* SDK: Repay debt on leveraged positions
-* Guide: [https://kamino.com/docs/build/developers/multiply/operations/repay-xstocks](https://kamino.com/docs/build/developers/multiply/operations/repay-xstocks)
-
-**Withdraw with xStocks**
-
-* Requires: `@kamino-finance/klend-sdk`
-* SDK: Withdraw collateral from leveraged positions
-* Guide: [https://kamino.com/docs/build/developers/multiply/operations/withdraw-xstocks](https://kamino.com/docs/build/developers/multiply/operations/withdraw-xstocks)
-
-**Deleverage with xStocks**
-
-* Requires: `@kamino-finance/klend-sdk`
-* SDK: Reduce leverage by selling collateral to repay debt
-* Guide: [https://kamino.com/docs/build/developers/multiply/operations/deleverage-xstocks](https://kamino.com/docs/build/developers/multiply/operations/deleverage-xstocks)
-
-**Repay with Collateral (KSwap)**
-
-* Requires: `@kamino-finance/klend-sdk`, `@kamino-finance/kswap-sdk`, `@solana-program/address-lookup-table`
-* SDK: `getRepayWithCollIxs()`, `getKswapQuoter()`, `getKswapSwapper()`
-* Sequencing: (1) fetch pair LUTs from `cdn.kamino.finance/resources.json`, (2) run `getUserLutAddressAndSetupIxs()` and send any setup txs before main tx, (3) build and send main repay tx with LUT compression
-* Guide: [https://kamino.com/docs/build/developers/multiply/operations/repay-collateral](https://kamino.com/docs/build/developers/multiply/operations/repay-collateral)
-
-**Multiply Deposit (KSwap)**
-
-* Requires: `@kamino-finance/klend-sdk`, `@kamino-finance/kswap-sdk`, `@kamino-finance/scope-sdk`, `@solana-program/address-lookup-table`
-* SDK: `getDepositWithLeverageIxs()`, `getKswapQuoter()`, `getKswapSwapper()`, `getScopeRefreshIxForObligationAndReserves()`
-* Sequencing: (1) fetch pair LUTs from `cdn.kamino.finance/resources.json`, (2) run `getUserLutAddressAndSetupIxs()` and send any setup txs before main tx, (3) fetch Scope prices, (4) build and send main multiply tx with LUT compression
-* Tutorial: [https://kamino.com/docs/build/tutorials/borrow/multiply-deposit-kswap](https://kamino.com/docs/build/tutorials/borrow/multiply-deposit-kswap)
-
-### Advanced Borrow Operations (Buildkit)
-
-**Referral System**
-
-* Requires: `@kamino-finance/klend-sdk`
-* SDK: `getInitReferrerStateAndShortUrlIxs()`, `getReferrerForShortUrl()`
-* Tutorial: [https://kamino.com/docs/build/tutorials/borrow/referrer-setup](https://kamino.com/docs/build/tutorials/borrow/referrer-setup)
-
-### Curator Vault Management
-
-**Creating and Configuring Vaults**
-
-* Deploy new lending vaults via SDK: `KaminoManager.createVaultIxs(vaultConfig)`
-* Configure token mint, performance fees, management fees, withdrawal penalties
-* Transfer admin to multisig (Squads) after creation
-* Guide: [https://kamino.com/docs/curators/vaults/creating-a-vault](https://kamino.com/docs/curators/vaults/creating-a-vault)
-
-**Allocation Management**
-
-* Set allocation weights and caps per reserve
-* Standard allocations (always active) vs Conditional allocations (demand-only)
-* Sync allocations to rebalance vault capital across reserves
-* Guide: [https://kamino.com/docs/curators/vaults/allocations](https://kamino.com/docs/curators/vaults/allocations)
-
-**Farms & Rewards**
-
-* Requires: `@kamino-finance/farms-sdk`
-* Configure vault farms for depositor reward distribution
-* Set up First Loss Capital buffer for depositor protection
-* Enable autocompounding of rewards
-* Guide: [https://kamino.com/docs/curators/vaults/farms-and-rewards](https://kamino.com/docs/curators/vaults/farms-and-rewards)
-
-**Curator Data Queries**
-
-* `GET /kvaults/vaults/{pubkey}` — Vault details and current state
-* `GET /kvaults/vaults/{pubkey}/metrics` — Vault performance metrics
-* `GET /kvaults/users/{userPubkey}/positions/{vaultPubkey}` — Depositor positions
-* `GET /kvaults/rewards` — Active vault reward programs
-
-### Rewards & Yield
-
-**KLend Rewards**
-
-* `GET /klend/users/{pubkey}/rewards` — User claimable KLend rewards
-* `GET /klend/rewards` — All active KLend reward metrics
-* Requires (SDK reward calc): `@kamino-finance/farms-sdk` — `FarmState`, `calculateCurrentRewardPerToken()`
-* Requires (SDK claim): `@kamino-finance/farms-sdk` — `Farms`, `farm.claimForUserForFarmAllRewardsIx()`
-* Tutorial (APY calc): [https://kamino.com/docs/build/tutorials/borrow/calculate-reserve-reward-apy](https://kamino.com/docs/build/tutorials/borrow/calculate-reserve-reward-apy)
-* Tutorial (claim): [https://kamino.com/docs/build/tutorials/borrow/claim-user-rewards](https://kamino.com/docs/build/tutorials/borrow/claim-user-rewards)
-
-**KVault Rewards**
-
-* `GET /kvaults/rewards` — All active vault rewards
-* `GET /kvaults/users/{pubkey}/rewards` — User season points per vault
-
-**Staking Yields**
-
-* `GET /v2/staking-yields` — Latest staking yields for all LSTs
-* `GET /yields/{yieldSource}/history` — Historical yield data
-
-### Utility
-
-**Oracle Prices**
-
-* `GET /oracles/prices` — All oracle prices for Klend market assets
-
-**Lookup Tables**
-
-* `POST /luts/find-minimal` — Find minimal LUT set for transaction compression
-* CDN resource (multiply/repay-with-collateral): `GET https://cdn.kamino.finance/resources.json` — Returns token-pair-specific LUT addresses under `mainnet-beta.multiplyLUTsPairs[collMint][debtMint]` and `mainnet-beta.repayWithCollLUTs[collMint-debtMint]`
-
-**Solana Metadata**
-
-* `GET /epochs` — Epoch start/end times and slot numbers
-* `GET /slots/duration` — Median slot duration from last 3 epochs
-
-## Workflows
-
-### Deposit into Earn Vault (REST API)
-
-1. List vaults: `GET /kvaults/vaults`
-2. Get metrics: `GET /kvaults/vaults/{pubkey}/metrics`
-3. Build deposit tx: `POST /ktx/kvault/deposit` with `{ wallet, vault, amount }`
-4. Sign and send transaction client-side
-
-### Borrow Against Collateral (TypeScript SDK)
-
-1. Install: `npm install @kamino-finance/klend-sdk @solana/kit`
-2. Load market: `KaminoMarket.load(rpc, marketAddress, slotDuration)`
-3. Deposit collateral: `KaminoAction.buildDepositTxns(...)`
-4. Check health: `obligation.loanToValue()`
-5. Borrow: `KaminoAction.buildBorrowTxns(...)`
-
-### Create a Curator Vault (TypeScript SDK)
-
-1. Install: `npm install @kamino-finance/klend-sdk @solana/kit`
-2. Configure: `new KaminoVaultConfig({ admin, tokenMint, performanceFeeRatePercentage, ... })`
-3. Create: `KaminoManager.createVaultIxs(config)`
-4. Set allocations, configure farm, transfer to multisig
-
-## Integration
-
-**REST API** — Language-agnostic HTTP endpoints
-
-* Base URL: `https://api.kamino.finance`
-* OpenAPI Spec (Data): [https://api.kamino.finance/openapi/json?openapi=3.0.0](https://api.kamino.finance/openapi/json?openapi=3.0.0)
-* OpenAPI Spec (Transactions): [https://api.kamino.finance/ktx/documentation/json](https://api.kamino.finance/ktx/documentation/json)
-* Guide: [https://kamino.com/docs/build/developers/api-vs-sdk](https://kamino.com/docs/build/developers/api-vs-sdk)
-
-**TypeScript SDK** — On-chain transaction building
-
-* GitHub: [https://github.com/Kamino-Finance/klend-sdk](https://github.com/Kamino-Finance/klend-sdk)
-* Core: `npm install @kamino-finance/klend-sdk @solana/kit`
-* KSwap routing (multiply, repay-with-collateral): `npm install @kamino-finance/kswap-sdk`
-* Oracle prices (multiply): `npm install @kamino-finance/scope-sdk`
-* Farm rewards (APY calc, claim): `npm install @kamino-finance/farms-sdk`
-* LUT fetching (multiply, repay-with-collateral): `npm install @solana-program/address-lookup-table`
-
-**Documentation**
-
-* Product Docs: [https://kamino.com/docs](https://kamino.com/docs)
-* Developer Docs: [https://kamino.com/docs/build](https://kamino.com/docs/build)
-* Curator Docs: [https://kamino.com/docs/curators](https://kamino.com/docs/curators)
-
-## Context
-
-* Full page index: [https://kamino.com/docs/llms.txt](https://kamino.com/docs/llms.txt)
-* API Reference: [https://kamino.com/docs/build/api-reference](https://kamino.com/docs/build/api-reference)
-* Risk Dashboard: [https://risk.kamino.finance](https://risk.kamino.finance)
-* Discord: [https://discord.com/invite/kamino](https://discord.com/invite/kamino)
+## Overview
+
+Kamino Finance provides:
+- **Kamino Lend (K-Lend)**: Lending and borrowing protocol with isolated markets
+- **Kamino Liquidity (K-Liquidity)**: Automated CLMM liquidity management strategies
+- **Scope Oracle**: Oracle price aggregator for reliable pricing
+- **Multiply/Leverage**: Leveraged long/short positions on assets
+- **Vaults**: Yield-generating vault strategies
+- **Obligation Orders**: Automated LTV-based and price-based order execution
+
+## Quick Start
+
+### Installation
+
+```bash
+# Lending SDK
+npm install @kamino-finance/klend-sdk
+
+# Liquidity SDK
+npm install @kamino-finance/kliquidity-sdk
+
+# Oracle SDK
+npm install @kamino-finance/scope-sdk
+
+# Required peer dependencies
+npm install @solana/web3.js @coral-xyz/anchor decimal.js
+```
+
+### Environment Setup
+
+```bash
+# .env file
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+WALLET_KEYPAIR_PATH=./keypair.json
+```
+
+## Kamino Lending (klend-sdk)
+
+The lending SDK enables interaction with Kamino's lending markets for deposits, borrows, repayments, and liquidations.
+
+### Core Classes
+
+| Class | Purpose |
+|-------|---------|
+| `KaminoMarket` | Load and interact with lending markets |
+| `KaminoAction` | Build lending transactions (deposit, borrow, repay, withdraw) |
+| `KaminoObligation` | Manage user obligations (positions) |
+| `KaminoReserve` | Access reserve configurations and stats |
+| `VanillaObligation` | Standard obligation type |
+
+### Initialize Market
+
+```typescript
+import { KaminoMarket } from "@kamino-finance/klend-sdk";
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection("https://api.mainnet-beta.solana.com");
+
+// Main lending market address
+const MAIN_MARKET = new PublicKey("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF");
+
+// Load market with basic data
+const market = await KaminoMarket.load(connection, MAIN_MARKET);
+
+// Load reserves for detailed data
+await market.loadReserves();
+
+// Get specific reserve
+const usdcReserve = market.getReserve("USDC");
+console.log("Total Deposits:", usdcReserve?.stats.totalDepositsWads.toString());
+console.log("LTV:", usdcReserve?.stats.loanToValueRatio);
+console.log("Borrow APY:", usdcReserve?.stats.borrowInterestAPY);
+console.log("Supply APY:", usdcReserve?.stats.supplyInterestAPY);
+
+// Refresh all data including obligations
+await market.refreshAll();
+```
+
+### Deposit Collateral
+
+```typescript
+import { KaminoAction, VanillaObligation, PROGRAM_ID } from "@kamino-finance/klend-sdk";
+import { Keypair, sendAndConfirmTransaction } from "@solana/web3.js";
+import Decimal from "decimal.js";
+
+async function deposit(
+  market: KaminoMarket,
+  wallet: Keypair,
+  tokenSymbol: string,
+  amount: Decimal
+) {
+  // Build deposit transaction
+  const kaminoAction = await KaminoAction.buildDepositTxns(
+    market,
+    amount.toString(),           // Amount in base units
+    tokenSymbol,                  // e.g., "USDC", "SOL"
+    wallet.publicKey,
+    new VanillaObligation(PROGRAM_ID),
+    0,                            // Additional compute budget (optional)
+    true,                         // Include Ata init instructions
+    undefined,                    // Referrer (optional)
+    undefined,                    // Current slot (optional)
+    "finalized"                   // Commitment
+  );
+
+  // Get all instructions
+  const instructions = [
+    ...kaminoAction.setupIxs,
+    ...kaminoAction.lendingIxs,
+    ...kaminoAction.cleanupIxs,
+  ];
+
+  // Create and send transaction
+  const tx = new Transaction().add(...instructions);
+  const signature = await sendAndConfirmTransaction(connection, tx, [wallet]);
+
+  return signature;
+}
+```
+
+### Borrow Assets
+
+```typescript
+async function borrow(
+  market: KaminoMarket,
+  wallet: Keypair,
+  tokenSymbol: string,
+  amount: Decimal
+) {
+  const kaminoAction = await KaminoAction.buildBorrowTxns(
+    market,
+    amount.toString(),
+    tokenSymbol,
+    wallet.publicKey,
+    new VanillaObligation(PROGRAM_ID),
+    0,
+    true,
+    false,                        // Include deposit for fees (optional)
+    undefined,
+    undefined,
+    "finalized"
+  );
+
+  const instructions = [
+    ...kaminoAction.setupIxs,
+    ...kaminoAction.lendingIxs,
+    ...kaminoAction.cleanupIxs,
+  ];
+
+  const tx = new Transaction().add(...instructions);
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Repay Loan
+
+```typescript
+async function repay(
+  market: KaminoMarket,
+  wallet: Keypair,
+  tokenSymbol: string,
+  amount: Decimal | "max"
+) {
+  const repayAmount = amount === "max" ? "max" : amount.toString();
+
+  const kaminoAction = await KaminoAction.buildRepayTxns(
+    market,
+    repayAmount,
+    tokenSymbol,
+    wallet.publicKey,
+    new VanillaObligation(PROGRAM_ID),
+    0,
+    true,
+    undefined,
+    "finalized"
+  );
+
+  const instructions = [
+    ...kaminoAction.setupIxs,
+    ...kaminoAction.lendingIxs,
+    ...kaminoAction.cleanupIxs,
+  ];
+
+  const tx = new Transaction().add(...instructions);
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Withdraw Collateral
+
+```typescript
+async function withdraw(
+  market: KaminoMarket,
+  wallet: Keypair,
+  tokenSymbol: string,
+  amount: Decimal | "max"
+) {
+  const withdrawAmount = amount === "max" ? "max" : amount.toString();
+
+  const kaminoAction = await KaminoAction.buildWithdrawTxns(
+    market,
+    withdrawAmount,
+    tokenSymbol,
+    wallet.publicKey,
+    new VanillaObligation(PROGRAM_ID),
+    0,
+    true,
+    undefined,
+    "finalized"
+  );
+
+  const instructions = [
+    ...kaminoAction.setupIxs,
+    ...kaminoAction.lendingIxs,
+    ...kaminoAction.cleanupIxs,
+  ];
+
+  const tx = new Transaction().add(...instructions);
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Get User Obligations
+
+```typescript
+// Get single vanilla obligation for user
+const obligation = await market.getUserVanillaObligation(wallet.publicKey);
+
+if (obligation) {
+  console.log("Deposits:", obligation.state.deposits);
+  console.log("Borrows:", obligation.state.borrows);
+  console.log("Health Factor:", obligation.refreshedStats.borrowLimit);
+}
+
+// Get all obligations for user
+const allObligations = await market.getAllUserObligations(wallet.publicKey);
+
+// Get obligations for specific reserve
+const reserveObligations = await market.getAllUserObligationsForReserve(
+  wallet.publicKey,
+  usdcReserve
+);
+
+// Check if reserve is part of obligation
+const isReserveInObligation = market.isReserveInObligation(
+  obligation,
+  usdcReserve
+);
+```
+
+### Liquidation
+
+```typescript
+async function liquidate(
+  market: KaminoMarket,
+  liquidator: Keypair,
+  obligationOwner: PublicKey,
+  repayTokenSymbol: string,
+  withdrawTokenSymbol: string,
+  repayAmount: Decimal
+) {
+  const kaminoAction = await KaminoAction.buildLiquidateTxns(
+    market,
+    repayAmount.toString(),
+    repayTokenSymbol,
+    withdrawTokenSymbol,
+    obligationOwner,
+    liquidator.publicKey,
+    new VanillaObligation(PROGRAM_ID),
+    0,
+    true,
+    "finalized"
+  );
+
+  const instructions = [
+    ...kaminoAction.setupIxs,
+    ...kaminoAction.lendingIxs,
+    ...kaminoAction.cleanupIxs,
+  ];
+
+  const tx = new Transaction().add(...instructions);
+  return await sendAndConfirmTransaction(connection, tx, [liquidator]);
+}
+```
+
+## Leverage/Multiply Operations
+
+Kamino supports leveraged positions through the multiply feature.
+
+### Open Leveraged Position
+
+```typescript
+import {
+  getLeverageDepositIxns,
+  getLeverageWithdrawIxns,
+  calculateLeverageMultiplier
+} from "@kamino-finance/klend-sdk/leverage";
+
+async function openLeveragedPosition(
+  market: KaminoMarket,
+  wallet: Keypair,
+  collateralToken: string,
+  borrowToken: string,
+  depositAmount: Decimal,
+  targetLeverage: number  // e.g., 2x, 3x
+) {
+  // Calculate parameters for target leverage
+  const leverageParams = await calculateLeverageMultiplier(
+    market,
+    collateralToken,
+    borrowToken,
+    depositAmount,
+    targetLeverage
+  );
+
+  // Build leverage deposit instructions
+  const { instructions, lookupTables } = await getLeverageDepositIxns(
+    market,
+    wallet.publicKey,
+    collateralToken,
+    borrowToken,
+    depositAmount,
+    leverageParams,
+    new VanillaObligation(PROGRAM_ID)
+  );
+
+  // Execute transaction with address lookup tables
+  const tx = new VersionedTransaction(/* ... */);
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Close Leveraged Position
+
+```typescript
+async function closeLeveragedPosition(
+  market: KaminoMarket,
+  wallet: Keypair,
+  collateralToken: string,
+  borrowToken: string
+) {
+  const { instructions, lookupTables } = await getLeverageWithdrawIxns(
+    market,
+    wallet.publicKey,
+    collateralToken,
+    borrowToken,
+    "max",  // Withdraw full position
+    new VanillaObligation(PROGRAM_ID)
+  );
+
+  const tx = new VersionedTransaction(/* ... */);
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+## Obligation Orders
+
+Automate actions based on LTV or price thresholds.
+
+### LTV-Based Orders
+
+```typescript
+import {
+  createLtvBasedOrder,
+  LtvOrderType
+} from "@kamino-finance/klend-sdk/obligation_orders";
+
+// Create order to repay when LTV exceeds threshold
+async function createLtvOrder(
+  market: KaminoMarket,
+  wallet: Keypair,
+  targetLtv: number,  // e.g., 0.8 for 80%
+  repayToken: string,
+  repayAmount: Decimal
+) {
+  const orderIx = await createLtvBasedOrder(
+    market,
+    wallet.publicKey,
+    new VanillaObligation(PROGRAM_ID),
+    {
+      type: LtvOrderType.REPAY_ON_HIGH_LTV,
+      triggerLtv: targetLtv,
+      repayToken,
+      repayAmount: repayAmount.toString(),
+    }
+  );
+
+  const tx = new Transaction().add(orderIx);
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Price-Based Orders
+
+```typescript
+import {
+  createPriceBasedOrder,
+  PriceOrderType
+} from "@kamino-finance/klend-sdk/obligation_orders";
+
+// Create stop-loss order
+async function createStopLossOrder(
+  market: KaminoMarket,
+  wallet: Keypair,
+  tokenSymbol: string,
+  triggerPrice: Decimal,
+  action: "repay" | "withdraw"
+) {
+  const orderIx = await createPriceBasedOrder(
+    market,
+    wallet.publicKey,
+    new VanillaObligation(PROGRAM_ID),
+    {
+      type: PriceOrderType.STOP_LOSS,
+      tokenSymbol,
+      triggerPrice: triggerPrice.toString(),
+      action,
+    }
+  );
+
+  const tx = new Transaction().add(orderIx);
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+## Kamino Liquidity (kliquidity-sdk)
+
+Automated liquidity management for concentrated liquidity positions on Orca, Raydium, and Meteora.
+
+### Initialize SDK
+
+```typescript
+import { Kamino } from "@kamino-finance/kliquidity-sdk";
+import { Connection, clusterApiUrl } from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("mainnet-beta"));
+const kamino = new Kamino("mainnet-beta", connection);
+```
+
+### Fetch Strategies
+
+```typescript
+// Get all strategies
+const strategies = await kamino.getStrategies();
+
+// Get strategy by address
+const strategy = await kamino.getStrategyByAddress(
+  new PublicKey("strategy_address")
+);
+
+// Get strategy by kToken mint
+const strategyByMint = await kamino.getStrategyByKTokenMint(
+  new PublicKey("ktoken_mint")
+);
+
+// Get strategies with filters
+const filteredStrategies = await kamino.getAllStrategiesWithFilters({
+  strategyType: "NON_PEGGED",   // NON_PEGGED, PEGGED, STABLE
+  status: "LIVE",               // LIVE, STAGING, DEPRECATED
+  tokenA: new PublicKey("..."), // Filter by token A
+  tokenB: new PublicKey("..."), // Filter by token B
+});
+```
+
+### Strategy Types
+
+| Type | Description | Example Pairs |
+|------|-------------|---------------|
+| `NON_PEGGED` | Uncorrelated assets | SOL-BONK, SOL-USDC |
+| `PEGGED` | Loosely correlated | BSOL-JitoSOL, mSOL-SOL |
+| `STABLE` | Price-stable | USDC-USDT, USDH-USDC |
+
+### Get Strategy Data
+
+```typescript
+// Get share price
+const sharePrice = await kamino.getStrategySharePrice(strategy);
+console.log("Share Price:", sharePrice.toString());
+
+// Get share data
+const shareData = await kamino.getStrategyShareData(strategy);
+console.log("Total Shares:", shareData.totalShares);
+console.log("Token A per Share:", shareData.tokenAPerShare);
+console.log("Token B per Share:", shareData.tokenBPerShare);
+
+// Get token amounts per share
+const tokenAmounts = await kamino.getTokenAAndBPerShare(strategy);
+console.log("Token A:", tokenAmounts.tokenA);
+console.log("Token B:", tokenAmounts.tokenB);
+
+// Get strategy price range
+const range = await kamino.getStrategyRange(strategy);
+console.log("Lower Price:", range.lowerPrice);
+console.log("Upper Price:", range.upperPrice);
+console.log("Current Price:", range.currentPrice);
+```
+
+### Deposit to Strategy
+
+```typescript
+import Decimal from "decimal.js";
+
+async function depositToStrategy(
+  kamino: Kamino,
+  wallet: Keypair,
+  strategyAddress: PublicKey,
+  tokenAAmount: Decimal,
+  tokenBAmount: Decimal,
+  slippage: Decimal  // e.g., new Decimal(0.01) for 1%
+) {
+  const strategy = await kamino.getStrategyByAddress(strategyAddress);
+
+  // Build deposit instructions
+  const depositIxs = await kamino.deposit(
+    strategy,
+    wallet.publicKey,
+    tokenAAmount,
+    tokenBAmount,
+    slippage
+  );
+
+  // Create transaction with extra compute budget
+  const tx = kamino.createTransactionWithExtraBudget();
+  tx.add(...depositIxs);
+
+  await kamino.assignBlockInfoToTransaction(tx);
+
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Single Token Deposit
+
+```typescript
+async function singleTokenDeposit(
+  kamino: Kamino,
+  wallet: Keypair,
+  strategyAddress: PublicKey,
+  tokenAmount: Decimal,
+  isTokenA: boolean,  // true for Token A, false for Token B
+  slippage: Decimal
+) {
+  const strategy = await kamino.getStrategyByAddress(strategyAddress);
+
+  const depositIxs = await kamino.singleTokenDeposit(
+    strategy,
+    wallet.publicKey,
+    tokenAmount,
+    isTokenA,
+    slippage
+  );
+
+  const tx = kamino.createTransactionWithExtraBudget();
+  tx.add(...depositIxs);
+
+  await kamino.assignBlockInfoToTransaction(tx);
+
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Withdraw from Strategy
+
+```typescript
+async function withdrawFromStrategy(
+  kamino: Kamino,
+  wallet: Keypair,
+  strategyAddress: PublicKey,
+  shareAmount: Decimal,  // Number of shares to withdraw
+  slippage: Decimal
+) {
+  const strategy = await kamino.getStrategyByAddress(strategyAddress);
+
+  const withdrawIxs = await kamino.withdraw(
+    strategy,
+    wallet.publicKey,
+    shareAmount,
+    slippage
+  );
+
+  const tx = kamino.createTransactionWithExtraBudget();
+  tx.add(...withdrawIxs);
+
+  await kamino.assignBlockInfoToTransaction(tx);
+
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+
+// Withdraw all shares
+async function withdrawAllShares(
+  kamino: Kamino,
+  wallet: Keypair,
+  strategyAddress: PublicKey,
+  slippage: Decimal
+) {
+  const strategy = await kamino.getStrategyByAddress(strategyAddress);
+
+  const withdrawIxs = await kamino.withdrawAllShares(
+    strategy,
+    wallet.publicKey,
+    slippage
+  );
+
+  const tx = kamino.createTransactionWithExtraBudget();
+  tx.add(...withdrawIxs);
+
+  await kamino.assignBlockInfoToTransaction(tx);
+
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Collect Fees & Rewards
+
+```typescript
+async function collectFeesAndRewards(
+  kamino: Kamino,
+  wallet: Keypair,
+  strategyAddress: PublicKey
+) {
+  const strategy = await kamino.getStrategyByAddress(strategyAddress);
+
+  const collectIxs = await kamino.collectFeesAndRewards(
+    strategy,
+    wallet.publicKey
+  );
+
+  const tx = kamino.createTransactionWithExtraBudget();
+  tx.add(...collectIxs);
+
+  await kamino.assignBlockInfoToTransaction(tx);
+
+  return await sendAndConfirmTransaction(connection, tx, [wallet]);
+}
+```
+
+### Get Pool Information
+
+```typescript
+// Get supported DEXes
+const dexes = kamino.getSupportedDexes();
+// Returns: ["ORCA", "RAYDIUM", "METEORA"]
+
+// Get fee tiers for DEX
+const feeTiers = kamino.getFeeTiersForDex("ORCA");
+
+// Get pools for token pair
+const orcaPools = await kamino.getOrcaPoolsForTokens(tokenAMint, tokenBMint);
+const raydiumPools = await kamino.getRaydiumPoolsForTokens(tokenAMint, tokenBMint);
+const meteoraPools = await kamino.getMeteoraPoolsForTokens(tokenAMint, tokenBMint);
+
+// Get current price for pair
+const price = await kamino.getPriceForPair("ORCA", tokenAMint, tokenBMint);
+```
+
+### Rebalance Methods
+
+```typescript
+// Get available rebalance methods
+const methods = kamino.getRebalanceMethods();
+// Returns: ["MANUAL", "DRIFT", "TAKE_PROFIT", "PERIODIC", "PRICE_PERCENTAGE", ...]
+
+// Get enabled methods
+const enabledMethods = kamino.getEnabledRebalanceMethods();
+
+// Get default method
+const defaultMethod = kamino.getDefaultRebalanceMethod();
+
+// Read rebalance parameters for strategy
+const driftParams = await kamino.readDriftRebalanceParams(strategy);
+const periodicParams = await kamino.readPeriodicRebalanceParams(strategy);
+const priceParams = await kamino.readPricePercentageParams(strategy);
+```
+
+### Create New Strategy
+
+```typescript
+async function createStrategy(
+  kamino: Kamino,
+  admin: Keypair,
+  params: {
+    dex: "ORCA" | "RAYDIUM" | "METEORA";
+    tokenAMint: PublicKey;
+    tokenBMint: PublicKey;
+    feeTierBps: Decimal;
+    rebalanceMethod: string;
+  }
+) {
+  const strategyKeypair = Keypair.generate();
+
+  // Check token accounts exist
+  const tokenAAccount = await kamino.getAssociatedTokenAddressAndData(
+    params.tokenAMint,
+    admin.publicKey
+  );
+  const tokenBAccount = await kamino.getAssociatedTokenAddressAndData(
+    params.tokenBMint,
+    admin.publicKey
+  );
+
+  // Create strategy account
+  const createAccountIx = await kamino.createStrategyAccount(
+    strategyKeypair.publicKey
+  );
+
+  // Initialize strategy
+  const initIxs = await kamino.initializeStrategy(
+    strategyKeypair.publicKey,
+    admin.publicKey,
+    params
+  );
+
+  const tx = kamino.createTransactionWithExtraBudget();
+  tx.add(createAccountIx, ...initIxs);
+
+  await kamino.assignBlockInfoToTransaction(tx);
+
+  return await sendAndConfirmTransaction(
+    connection,
+    tx,
+    [admin, strategyKeypair],
+    { commitment: "finalized" }
+  );
+}
+```
+
+## Scope Oracle (scope-sdk)
+
+Oracle price aggregator providing reliable pricing data.
+
+### Initialize Scope
+
+```typescript
+import { Scope } from "@kamino-finance/scope-sdk";
+import { Connection, clusterApiUrl } from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("mainnet-beta"));
+const scope = new Scope("mainnet-beta", connection);
+```
+
+### Get Oracle Prices
+
+```typescript
+// Get all oracle prices
+const prices = await scope.getOraclePrices();
+
+// Prices indexed by token
+console.log("SOL Price:", prices.get("SOL"));
+console.log("USDC Price:", prices.get("USDC"));
+
+// Get specific price
+const solPrice = await scope.getPrice("SOL");
+console.log("SOL/USD:", solPrice.price.toString());
+console.log("Timestamp:", solPrice.timestamp);
+console.log("Confidence:", solPrice.confidence);
+```
+
+### Price Feeds
+
+Scope aggregates from multiple oracle sources:
+- **Pyth**: Real-time market prices
+- **Switchboard**: Decentralized oracle network
+- **TWAP**: Time-weighted average prices
+- **CLMM Prices**: DEX-derived prices
+
+```typescript
+// Get price with source info
+const priceData = await scope.getPriceWithMetadata("SOL");
+console.log("Price:", priceData.price);
+console.log("Source:", priceData.source);
+console.log("Age (slots):", priceData.ageSlots);
+```
+
+## CLI Commands
+
+### Lending CLI
+
+```bash
+# Deposit tokens
+yarn cli deposit --url <RPC> --owner ./keypair.json --token USDC --amount 100
+
+# Print all lending market accounts
+yarn cli print-all-lending-market-accounts --rpc <RPC>
+
+# Print all reserve accounts
+yarn cli print-all-reserve-accounts --rpc <RPC>
+
+# Print all obligation accounts
+yarn cli print-all-obligation-accounts --rpc <RPC>
+
+# Filter with jq
+yarn cli print-all-reserve-accounts --rpc <RPC> | jq '.lastUpdateSlot'
+yarn cli print-all-obligation-accounts --rpc <RPC> | jq --stream 'select(.[0][1] == "owner")'
+```
+
+## Program Addresses
+
+### Mainnet
+
+| Program | Address |
+|---------|---------|
+| Kamino Lending | `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD` |
+| Main Market | `7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF` |
+| Kamino Liquidity | `KLIQ... (varies)` |
+| Scope Oracle | `ScopE... (varies)` |
+
+## Reserve Configuration
+
+Each reserve has configurable parameters:
+
+```typescript
+interface ReserveConfig {
+  // Collateral configuration
+  loanToValueRatio: number;        // Max borrowing power (e.g., 0.8 = 80%)
+  liquidationThreshold: number;     // Liquidation trigger (e.g., 0.85 = 85%)
+  liquidationBonus: number;         // Liquidator reward (e.g., 0.05 = 5%)
+
+  // Interest rate model
+  optimalUtilizationRate: number;   // Target utilization
+  borrowRateCurve: {
+    baseRate: number;
+    optimalRate: number;
+    maxRate: number;
+  };
+
+  // Fees
+  protocolTakeRate: number;         // Protocol fee on interest
+  hostFeeRate: number;              // Host integration fee
+
+  // Limits
+  depositLimit: number;             // Max deposits
+  borrowLimit: number;              // Max borrows
+
+  // Status
+  depositEnabled: boolean;
+  borrowEnabled: boolean;
+  withdrawEnabled: boolean;
+}
+```
+
+## Error Handling
+
+```typescript
+import { KaminoError, ErrorCode } from "@kamino-finance/klend-sdk";
+
+try {
+  await kaminoAction.execute();
+} catch (error) {
+  if (error instanceof KaminoError) {
+    switch (error.code) {
+      case ErrorCode.InsufficientCollateral:
+        console.error("Not enough collateral for this borrow");
+        break;
+      case ErrorCode.BorrowLimitExceeded:
+        console.error("Borrow limit reached for this reserve");
+        break;
+      case ErrorCode.LiquidationThresholdExceeded:
+        console.error("Position is at risk of liquidation");
+        break;
+      case ErrorCode.InvalidObligation:
+        console.error("Obligation account not found or invalid");
+        break;
+      default:
+        console.error("Kamino error:", error.message);
+    }
+  } else {
+    throw error;
+  }
+}
+```
+
+## Best Practices
+
+### Health Factor Monitoring
+
+```typescript
+async function checkHealthFactor(
+  market: KaminoMarket,
+  wallet: PublicKey
+): Promise<number> {
+  await market.refreshAll();
+  const obligation = await market.getUserVanillaObligation(wallet);
+
+  if (!obligation) return Infinity;
+
+  const stats = obligation.refreshedStats;
+  const healthFactor = stats.borrowLimit / stats.borrowedValue;
+
+  if (healthFactor < 1.1) {
+    console.warn("WARNING: Health factor below 1.1, consider adding collateral");
+  }
+
+  return healthFactor;
+}
+```
+
+### Transaction Optimization
+
+```typescript
+// Use lookup tables for smaller transactions
+const { instructions, lookupTables } = await kaminoAction.buildWithLookupTables();
+
+// Create versioned transaction
+const messageV0 = new TransactionMessage({
+  payerKey: wallet.publicKey,
+  recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
+  instructions,
+}).compileToV0Message(lookupTables);
+
+const tx = new VersionedTransaction(messageV0);
+tx.sign([wallet]);
+
+await sendAndConfirmTransaction(connection, tx, [wallet]);
+```
+
+### Slippage Protection
+
+```typescript
+// For liquidity operations, always use slippage protection
+const slippage = new Decimal(0.005); // 0.5% max slippage
+
+const depositIxs = await kamino.deposit(
+  strategy,
+  wallet.publicKey,
+  tokenAAmount,
+  tokenBAmount,
+  slippage  // Protects against price movement
+);
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  // Lending types
+  KaminoMarket,
+  KaminoAction,
+  KaminoObligation,
+  KaminoReserve,
+  VanillaObligation,
+  ReserveConfig,
+  ObligationStats,
+
+  // Liquidity types
+  Kamino,
+  WhirlpoolStrategy,
+  StrategyWithAddress,
+  ShareData,
+  PositionRange,
+  RebalanceMethod,
+  StrategiesFilters,
+
+  // Oracle types
+  Scope,
+  OraclePrices,
+  PriceData,
+} from "@kamino-finance/klend-sdk";
+```
+
+## Kamino 2.0 / K-Lend (New Features)
+
+### Architecture Updates
+
+Kamino 2.0 introduced a fully integrated application with two key layers:
+- **Market Layer**: Core lending markets with advanced risk parameters
+- **Vault Layer**: Curator-managed vault strategies for optimized yield
+
+### New Collateral Support (2025)
+
+| Asset | Type | Notes |
+|-------|------|-------|
+| **nxSOL** | LST | Nansen liquid staking token |
+| **Huma RWA** | RWA | Real-world asset backed collateral |
+| **JitoSOL** | LST | Jito liquid staking token |
+
+### K-Lend V2 Features (Q4 2025)
+
+- **Modular Lending**: Isolated markets for RWAs and institutional use cases
+- **Enhanced Risk Engine**: Improved liquidation parameters
+- **Multi-collateral Positions**: Borrow against multiple assets
+
+### Governance (Q1 2026)
+
+Decentralized decision-making via KMNO stakers will be activated, allowing token holders to vote on:
+- Reserve parameters
+- New market listings
+- Protocol fees
+
+## Security Milestones
+
+- Fourth protocol verification completed (October 2025)
+- $1.5M bug bounty program active
+
+## Resources
+
+- [Kamino Finance Website](https://kamino.finance)
+- [Kamino Documentation](https://docs.kamino.finance)
+- [klend-sdk GitHub](https://github.com/Kamino-Finance/klend-sdk)
+- [kliquidity-sdk GitHub](https://github.com/Kamino-Finance/kliquidity-sdk)
+- [scope-sdk GitHub](https://github.com/Kamino-Finance/scope-sdk)
+- [farms-sdk GitHub](https://github.com/Kamino-Finance/farms-sdk)
+- [Kamino Discord](https://discord.gg/kamino)
+
+## Skill Structure
+
+```
+kamino/
+├── SKILL.md                        # This file
+├── resources/
+│   ├── klend-api-reference.md      # Complete lending API
+│   ├── kliquidity-api-reference.md # Complete liquidity API
+│   ├── scope-api-reference.md      # Oracle API reference
+│   ├── reserve-configs.md          # Reserve configurations
+│   └── program-addresses.md        # All program addresses
+├── examples/
+│   ├── lending/
+│   │   ├── deposit-withdraw.md     # Deposit & withdraw examples
+│   │   ├── borrow-repay.md         # Borrowing examples
+│   │   ├── leverage.md             # Multiply/leverage examples
+│   │   └── liquidation.md          # Liquidation bot example
+│   ├── liquidity/
+│   │   ├── strategy-management.md  # Strategy operations
+│   │   ├── deposits-withdrawals.md # LP operations
+│   │   └── rebalancing.md          # Rebalance strategies
+│   └── oracle/
+│       └── price-feeds.md          # Oracle usage examples
+├── templates/
+│   ├── lending-setup.ts            # Lending starter
+│   ├── liquidity-setup.ts          # Liquidity starter
+│   └── full-integration.ts         # Complete integration
+└── docs/
+    ├── troubleshooting.md          # Common issues
+    └── advanced-patterns.md        # Complex patterns
+```

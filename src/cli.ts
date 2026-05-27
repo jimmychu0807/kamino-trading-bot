@@ -1,9 +1,10 @@
-import { loadConfig } from "./config/env.ts";
-import { createSolanaContext, getSignerAddress } from "./solana/connection.ts";
-import { KaminoApiYieldSource } from "./kamino/yieldSource.ts";
-import { KaminoVaultClientAdapter } from "./kamino/vaultClient.ts";
-import { KitTransactionExecutor } from "./kamino/txExecutor.ts";
 import { BotRunner } from "./bot/runner.ts";
+import { loadConfig } from "./config/env.ts";
+import { KitTransactionExecutor } from "./kamino/txExecutor.ts";
+import { KaminoVaultClientAdapter } from "./kamino/vaultClient.ts";
+import { KaminoApiYieldSource } from "./kamino/yieldSource.ts";
+import { createSolanaContext, getSignerAddress } from "./solana/connection.ts";
+import { RpcWalletBalanceReader } from "./solana/walletBalances.ts";
 
 export type ParsedCliArgs = {
 	durationSec?: number;
@@ -71,8 +72,6 @@ export async function main(argv = Bun.argv.slice(2)): Promise<void> {
 		durationSec: cli.durationSec,
 		intervalSec: cli.intervalSec,
 	});
-
-	console.log("create Solana context");
 	console.log("config:", config);
 
 	const { rpc, rpcSubscriptions, signer } = await createSolanaContext(
@@ -80,18 +79,15 @@ export async function main(argv = Bun.argv.slice(2)): Promise<void> {
 		config.privateKey,
 	);
 
-	console.log("creating bot...");
-
 	const runner = new BotRunner({
 		config,
 		yieldSource: new KaminoApiYieldSource(),
 		vaultClient: new KaminoVaultClientAdapter(rpc),
 		txExecutor: new KitTransactionExecutor(rpc, rpcSubscriptions, signer),
+		walletBalances: new RpcWalletBalanceReader(rpc),
 		user: getSignerAddress(signer),
 		signer,
 	});
-
-	console.log("bot start running...");
 
 	await runner.run();
 }

@@ -33,10 +33,21 @@ export type VaultPosition = {
 	tokenValue: number;
 };
 
+/** Tracks how much of the reserve budget has been deployed into vaults. */
+export type AllocationTracker = {
+	allocatedFromReserve: number;
+};
+
 export type RebalanceInput = {
 	vaults: VaultId[];
-	apyByVault: Map<VaultId, number>;
 	positions: VaultPosition[];
+	apyByVault: Map<VaultId, number>;
+	liquidityByVault: Map<VaultId, number>;
+	/** Wallet USDC available to deploy from reserve. */
+	usdcReserve: number;
+	/** Reserve principal already in vaults (excludes yield above this baseline). */
+	allocatedFromReserve: number;
+	/** Max reserve principal that may be deployed across all vaults. */
 	maxAllocation: number;
 	minMoveAmount: number;
 };

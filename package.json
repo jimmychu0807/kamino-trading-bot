@@ -9,7 +9,7 @@
 		"test:integration": "bun test tests/integration",
 		"test:e2e": "bun test tests/e2e",
 		"check": "bunx --bun @biomejs/biome check",
-		"format": "bunx --bun @biomejs/biome format --write"
+		"format": "bunx --bun @biomejs/biome check --write"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.15",
@@ -18,8 +18,11 @@
 	"peerDependencies": {
 		"typescript": "^5"
 	},
+	"overrides": {
+		"@kamino-finance/farms-sdk": "3.2.24"
+	},
 	"dependencies": {
-		"@kamino-finance/farms-sdk": "^3.2.26",
+		"@kamino-finance/farms-sdk": "3.2.24",
 		"@kamino-finance/klend-sdk": "^8.0.0",
 		"@solana/kit": "2.3.0",
 		"@solana/spl-token": "0.4.9"

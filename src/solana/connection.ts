@@ -1,7 +1,6 @@
 import {
 	type Address,
 	createKeyPairSignerFromBytes,
-	createKeyPairSignerFromPrivateKeyBytes,
 	createSolanaRpc,
 	createSolanaRpcSubscriptions,
 	getBase58Codec,
@@ -10,7 +9,6 @@ import {
 	type SolanaRpcApi,
 	type TransactionSigner,
 } from "@solana/kit";
-import { parsePrivateKeyBytes } from "../config/env.ts";
 
 export type SolanaContext = {
 	rpc: Rpc<SolanaRpcApi>;

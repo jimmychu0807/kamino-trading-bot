@@ -66,6 +66,9 @@ describe("bot dry-run e2e", () => {
 				yieldSource,
 				vaultClient,
 				txExecutor,
+				walletBalances: {
+					getBalances: async () => ({ sol: 0.5, usdc: 25 }),
+				},
 				user: address("11111111111111111111111111111111"),
 				signer: { address: address("11111111111111111111111111111111") },
 				now: () => nowMs,

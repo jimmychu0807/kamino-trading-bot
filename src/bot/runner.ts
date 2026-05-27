@@ -1,4 +1,5 @@
-import type { BotConfig } from "../config/types.ts";
+import type { AllocationTracker, BotConfig } from "../config/types.ts";
+import { initialAllocatedFromReserve } from "../strategy/planRebalance.ts";
 import { type RebalanceCycleDeps, rebalanceCycle } from "./rebalance.ts";
 
 export type BotRunnerDeps = Omit<RebalanceCycleDeps, "config"> & {
@@ -31,14 +32,26 @@ export class BotRunner {
 	}
 
 	async run(): Promise<number> {
-		const { config } = this.deps;
+		const { config, walletBalances, user } = this.deps;
 		const now = this.deps.now ?? Date.now;
 		const sleep = this.deps.sleep ?? defaultSleep;
 		const startMs = now();
 		const endMs = config.durationSec === null ? null : startMs + config.durationSec * 1000;
 
+		const balances = await walletBalances.getBalances(user);
+		const vaults = [...config.vaultAddresses];
+		await this.deps.vaultClient.preloadVaults(vaults);
+		const startupPositions = await this.deps.vaultClient.getPositions(user, vaults);
+		const startupVaultTotal = startupPositions.reduce(
+			(sum, position) => sum + position.tokenValue,
+			0,
+		);
+		const allocationTracker: AllocationTracker = {
+			allocatedFromReserve: initialAllocatedFromReserve(startupVaultTotal, config.maxAllocation),
+		};
+
 		console.log(
-			`Bot starting: interval=${config.intervalSec}s, duration=${config.durationSec ?? "indefinite"}s, dryRun=${config.dryRun}`,
+			`Bot starting: interval=${config.intervalSec}s, duration=${config.durationSec ?? "indefinite"}s, dryRun=${config.dryRun}, wallet SOL=${balances.sol.toFixed(6)}, USDC=${balances.usdc.toFixed(6)}, vault total=${startupVaultTotal.toFixed(6)}, reserve deployed=${allocationTracker.allocatedFromReserve.toFixed(6)}/${config.maxAllocation.toFixed(6)}`,
 		);
 
 		const maxCycles = expectedCycleCount(config.durationSec, config.intervalSec);
@@ -51,7 +64,7 @@ export class BotRunner {
 				break;
 			}
 
-			await rebalanceCycle({ ...this.deps, config });
+			await rebalanceCycle({ ...this.deps, config, allocationTracker });
 			this.cycleCount++;
 
 			if (maxCycles !== null && this.cycleCount >= maxCycles) {

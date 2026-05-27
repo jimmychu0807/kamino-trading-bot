@@ -29,18 +29,67 @@ function computeWeights(vaults: VaultId[], apyByVault: Map<VaultId, number>): Ma
 	return weights;
 }
 
-function scaleDeltas(deltas: Map<VaultId, number>, maxAllocation: number): Map<VaultId, number> {
-	const totalMove = [...deltas.values()].reduce((sum, delta) => sum + Math.abs(delta), 0);
-	if (totalMove <= maxAllocation || totalMove === 0) {
+export function remainingReserveDeployBudget(
+	maxAllocation: number,
+	allocatedFromReserve: number,
+): number {
+	return Math.max(0, maxAllocation - allocatedFromReserve);
+}
+
+export function initialAllocatedFromReserve(
+	startupVaultTotal: number,
+	maxAllocation: number,
+): number {
+	return Math.min(startupVaultTotal, maxAllocation);
+}
+
+/** Cap net deposits that would draw new principal from wallet reserve. */
+export function capNetDepositsByBudget(
+	deltas: Map<VaultId, number>,
+	maxNetDeposit: number,
+): Map<VaultId, number> {
+	if (maxNetDeposit <= 0) {
+		let totalWithdraw = 0;
+		let totalDeposit = 0;
+		for (const delta of deltas.values()) {
+			if (delta < 0) {
+				totalWithdraw += -delta;
+			} else if (delta > 0) {
+				totalDeposit += delta;
+			}
+		}
+		if (totalDeposit <= totalWithdraw) {
+			return deltas;
+		}
+		maxNetDeposit = 0;
+	}
+
+	let totalWithdraw = 0;
+	let totalDeposit = 0;
+	for (const delta of deltas.values()) {
+		if (delta < 0) {
+			totalWithdraw += -delta;
+		} else if (delta > 0) {
+			totalDeposit += delta;
+		}
+	}
+
+	const netDeposit = totalDeposit - totalWithdraw;
+	if (netDeposit <= maxNetDeposit) {
 		return deltas;
 	}
 
-	const scale = maxAllocation / totalMove;
-	const scaled = new Map<VaultId, number>();
+	const allowedDeposit = totalWithdraw + maxNetDeposit;
+	const scale = allowedDeposit / totalDeposit;
+	const capped = new Map<VaultId, number>();
 	for (const [vault, delta] of deltas) {
-		scaled.set(vault, delta * scale);
+		if (delta > 0) {
+			capped.set(vault, delta * scale);
+		} else {
+			capped.set(vault, delta);
+		}
 	}
-	return scaled;
+	return capped;
 }
 
 function buildActions(deltas: Map<VaultId, number>, minMoveAmount: number): RebalanceAction[] {
@@ -64,23 +113,35 @@ function buildActions(deltas: Map<VaultId, number>, minMoveAmount: number): Reba
 
 export const proportionalByApy: AllocationStrategy = (input) => {
 	const positions = positionMap(input.positions);
-	const totalValue = input.positions.reduce((sum, position) => sum + position.tokenValue, 0);
+	const vaultTotal = input.positions.reduce((sum, position) => sum + position.tokenValue, 0);
+	const deployBudget = remainingReserveDeployBudget(
+		input.maxAllocation,
+		input.allocatedFromReserve,
+	);
+	const maxNetDeposit = Math.min(deployBudget, input.usdcReserve);
+	const weights = computeWeights(input.vaults, input.apyByVault);
 
-	if (totalValue === 0) {
-		return { actions: [] };
+	if (vaultTotal === 0) {
+		if (maxNetDeposit <= 0) {
+			return { actions: [] };
+		}
+		const rawDeltas = new Map<VaultId, number>();
+		for (const vault of input.vaults) {
+			rawDeltas.set(vault, maxNetDeposit * (weights.get(vault) ?? 0));
+		}
+		const cappedDeltas = capNetDepositsByBudget(rawDeltas, maxNetDeposit);
+		return { actions: buildActions(cappedDeltas, input.minMoveAmount) };
 	}
 
-	const weights = computeWeights(input.vaults, input.apyByVault);
 	const rawDeltas = new Map<VaultId, number>();
-
 	for (const vault of input.vaults) {
 		const current = positions.get(vault) ?? 0;
-		const target = totalValue * (weights.get(vault) ?? 0);
+		const target = vaultTotal * (weights.get(vault) ?? 0);
 		rawDeltas.set(vault, target - current);
 	}
 
-	const scaledDeltas = scaleDeltas(rawDeltas, input.maxAllocation);
-	return { actions: buildActions(scaledDeltas, input.minMoveAmount) };
+	const cappedDeltas = capNetDepositsByBudget(rawDeltas, maxNetDeposit);
+	return { actions: buildActions(cappedDeltas, input.minMoveAmount) };
 };
 
 export function planRebalance(
@@ -95,6 +156,6 @@ export function formatPlan(plan: RebalancePlan): string {
 		return "No rebalance actions planned.";
 	}
 	return plan.actions
-		.map((action) => `${action.kind} ${action.amount.toFixed(6)} into ${action.vault}`)
-		.join("; ");
+		.map((action) => `  - ${action.kind} ${action.amount.toFixed(6)} into ${action.vault}`)
+		.join("\n");
 }
