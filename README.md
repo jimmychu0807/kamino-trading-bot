@@ -6,6 +6,8 @@
 
 A [Bun](https://bun.sh) / TypeScript CLI that reallocates deposits across **1–3** [Kamino Earn (K-Vault)](https://kamino.com/docs) vaults using a proportional-by-APY strategy. Configuration lives in `.env`; the bot runs for a fixed duration or indefinitely and rebalances on a schedule while capping new reserve deployment with `MAX_ALLOCATION`.
 
+[This is a video demo on the Kamino Trading bot](https://www.loom.com/share/686cc86f293f4362ac2bc30aa83a4de8).
+
 [Overview](#overview) • [Quick start](#quick-start) • [Configuration](#configuration) • [How rebalancing works](#how-rebalancing-works) • [Tests](#tests) • [Project layout](#project-layout)
 
 > [!WARNING]
@@ -185,6 +187,7 @@ tests/
 
 ## A few precautions during development using kamino-sdk
 
-- Beware the minimum amount of deposit and withdrawal in the selected vaults. There are some in 0.1, 1, or 10 USDC.
-- For some deposit/withdrawal transactions, depending on the selected vaults, there could be interact with so many addresses that not building an address lookup table will exceed the Solana transaction size limit.
-- For deposit/withdrawal transactions, increase the compute units limit from the default 200k to 1.4M.
+- Beware the minimum amount of deposit and withdrawal in the selected vaults. There are some in 0.1, 1, or 10 USDC. So set the proper **MIN_MOVE_AMOUNT** env or check the rebalance adjustment to be larger than the threshold requirement of the selected vaults.
+- Use a paid SOLANA_RPC endpoint as Kamino sdk calls [`GetProgramAccounts()`](https://solana.com/docs/rpc/http/getprogramaccounts). This is an expensive rpc call and will easily get rate limited and error out if you are using a free RPC endpoint.
+- For some deposit/withdrawal instructions, depending on the selected vaults, one transaction will interact with so many addresses that you need to build up an address lookup table, or else the transaction size will exceed the Solana transaction size limit.
+- With the same reason above, increase the compute units limit from the default 200k to 1.4M when sending the deposit and withdrawal instructions.
