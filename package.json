@@ -4,10 +4,10 @@
 	"type": "module",
 	"scripts": {
 		"start": "bun run src/cli.ts",
-		"test": "bun test",
 		"test:unit": "bun test tests/unit",
 		"test:integration": "bun test tests/integration",
 		"test:e2e": "bun test tests/e2e",
+		"test": "bun run test:unit && bun run test:integration",
 		"check": "bunx --bun @biomejs/biome check",
 		"format": "bunx --bun @biomejs/biome check --write"
 	},

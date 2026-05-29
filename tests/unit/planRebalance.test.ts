@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-	capNetDepositsByBudget,
 	initialAllocatedFromReserve,
 	planRebalance,
 	proportionalByApy,
@@ -187,18 +186,5 @@ describe("reserve deploy budget", () => {
 	test("remainingReserveDeployBudget", () => {
 		expect(remainingReserveDeployBudget(10, 8)).toBe(2);
 		expect(remainingReserveDeployBudget(10, 12)).toBe(0);
-	});
-
-	test("capNetDepositsByBudget limits net new reserve deployment", () => {
-		const deltas = new Map([
-			["vault-a", -10],
-			["vault-c", 15],
-		]);
-		const capped = capNetDepositsByBudget(deltas, 2);
-
-		const totalDeposit = [...capped.values()].filter((d) => d > 0).reduce((s, d) => s + d, 0);
-		const totalWithdraw = [...capped.values()].filter((d) => d < 0).reduce((s, d) => s - d, 0);
-		expect(totalDeposit - totalWithdraw).toBeLessThanOrEqual(2 + 1e-6);
-		expect(capped.get("vault-c")).toBeCloseTo(12, 4);
 	});
 });

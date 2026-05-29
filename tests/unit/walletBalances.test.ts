@@ -6,6 +6,8 @@ import {
 	USDC_MINT,
 } from "../../src/solana/walletBalances.ts";
 
+const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+
 describe("walletBalances", () => {
 	test("derives USDC associated token address", () => {
 		const owner = address("11111111111111111111111111111111");
@@ -13,13 +15,8 @@ describe("walletBalances", () => {
 		expect(ata).toBe("HJt8Tjdsc9ms9i4WCZEzhzr4oyf3ANcdzXrNdLPFqm3M");
 	});
 
-	test.skipIf(!process.env.SOLANA_RPC)("reads SOL and USDC balances from RPC", async () => {
-		const rpcUrl = process.env.SOLANA_RPC;
-		if (!rpcUrl) {
-			throw new Error("SOLANA_RPC is required");
-		}
-
-		const rpc = createSolanaRpc(rpcUrl);
+	test("reads SOL and USDC balances from RPC", async () => {
+		const rpc = createSolanaRpc(SOLANA_RPC);
 		const reader = new RpcWalletBalanceReader(rpc, USDC_MINT);
 		const owner = address("11111111111111111111111111111111");
 		const balances = await reader.getBalances(owner);
