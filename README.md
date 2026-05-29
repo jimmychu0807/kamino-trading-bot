@@ -189,5 +189,5 @@ tests/
 
 - Beware the minimum amount of deposit and withdrawal in the selected vaults. There are some in 0.1, 1, or 10 USDC. So set the proper **MIN_MOVE_AMOUNT** env or check the rebalance adjustment to be larger than the threshold requirement of the selected vaults.
 - Use a paid SOLANA_RPC endpoint as Kamino sdk calls [`GetProgramAccounts()`](https://solana.com/docs/rpc/http/getprogramaccounts). This is an expensive rpc call and will easily get rate limited and error out if you are using a free RPC endpoint.
-- For some deposit/withdrawal instructions, depending on the selected vaults, one transaction will interact with so many addresses that you need to build up an address lookup table, or else the transaction size will exceed the Solana transaction size limit.
+- For some deposit/withdrawal instructions, depending on the selected vaults, one transaction will interact with so many addresses that you need to build up an address lookup table, or else the transaction size will exceed the Solana transaction size limit of 1,232 bytes.
 - With the same reason above, increase the compute units limit from the default 200k to 1.4M when sending the deposit and withdrawal instructions.
