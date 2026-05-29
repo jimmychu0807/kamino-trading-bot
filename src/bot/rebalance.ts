@@ -30,6 +30,7 @@ export async function rebalanceCycle(deps: RebalanceCycleDeps): Promise<void> {
 	} = deps;
 	const vaults = [...config.vaultAddresses];
 
+	console.log(`--- rebalance starts (${formatDateTime(new Date())}) ---`);
 	console.log(`[rebalance] Starting cycle for vaults: ${vaults.join(", ")}`);
 
 	await vaultClient.preloadVaults(vaults);
@@ -66,32 +67,36 @@ export async function rebalanceCycle(deps: RebalanceCycleDeps): Promise<void> {
 
 	if (plan.actions.length === 0) {
 		console.log("[rebalance] Nothing to do.");
-		return;
-	}
-
-	if (config.dryRun) {
+	} else if (config.dryRun) {
 		console.log("[rebalance] DRY_RUN=true — skipping transaction execution.");
-		return;
-	}
+	} else {
+		for (const action of plan.actions) {
+			const label = `${action.kind} ${action.amount.toFixed(6)} ${action.vault}`;
+			const bundle =
+				action.kind === "deposit"
+					? await vaultClient.buildDepositIxs(action.vault, signer, action.amount)
+					: await vaultClient.buildWithdrawIxs(action.vault, signer, action.amount);
 
-	for (const action of plan.actions) {
-		const label = `${action.kind} ${action.amount.toFixed(6)} ${action.vault}`;
-		const instructions =
-			action.kind === "deposit"
-				? await vaultClient.buildDepositIxs(action.vault, signer, action.amount)
-				: await vaultClient.buildWithdrawIxs(action.vault, signer, action.amount);
-		await txExecutor.sendInstructions(instructions, label);
+			await txExecutor.sendInstructions(bundle.instructions, label, bundle.lookupTableAddresses);
 
-		if (action.kind === "deposit") {
-			allocationTracker.allocatedFromReserve = Math.min(
-				config.maxAllocation,
-				allocationTracker.allocatedFromReserve + action.amount,
-			);
-		} else {
-			allocationTracker.allocatedFromReserve = Math.max(
-				0,
-				allocationTracker.allocatedFromReserve - action.amount,
-			);
+			if (action.kind === "deposit") {
+				allocationTracker.allocatedFromReserve = Math.min(
+					config.maxAllocation,
+					allocationTracker.allocatedFromReserve + action.amount,
+				);
+			} else {
+				allocationTracker.allocatedFromReserve = Math.max(
+					0,
+					allocationTracker.allocatedFromReserve - action.amount,
+				);
+			}
 		}
 	}
+
+	console.log(`--- rebalance ends (${formatDateTime(new Date())}) ---`);
+}
+
+function formatDateTime(date: Date): string {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }

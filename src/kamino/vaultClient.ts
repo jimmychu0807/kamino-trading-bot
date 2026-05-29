@@ -10,6 +10,11 @@ import { address } from "@solana/kit";
 import Decimal from "decimal.js";
 import type { VaultId, VaultPosition } from "../config/types.ts";
 
+export type VaultInstructionsBundle = {
+	instructions: Instruction[];
+	lookupTableAddresses: Address[];
+};
+
 export interface VaultClient {
 	getPositions(user: Address, vaults: VaultId[]): Promise<VaultPosition[]>;
 	getLiquidity(vaults: VaultId[]): Promise<Map<VaultId, number>>;
@@ -17,12 +22,12 @@ export interface VaultClient {
 		vault: VaultId,
 		user: TransactionSigner,
 		tokenAmount: number,
-	): Promise<Instruction[]>;
+	): Promise<VaultInstructionsBundle>;
 	buildWithdrawIxs(
 		vault: VaultId,
 		user: TransactionSigner,
 		tokenAmount: number,
-	): Promise<Instruction[]>;
+	): Promise<VaultInstructionsBundle>;
 	preloadVaults(vaults: VaultId[]): Promise<void>;
 }
 
@@ -92,31 +97,41 @@ export class KaminoVaultClientAdapter implements VaultClient {
 		vaultId: VaultId,
 		user: TransactionSigner,
 		tokenAmount: number,
-	): Promise<Instruction[]> {
+	): Promise<VaultInstructionsBundle> {
 		const { vault, reservesMap } = await this.ensureVault(vaultId);
+		const vaultState = await vault.getState();
 		const deposit = await vault.depositIxs(user, new Decimal(tokenAmount), reservesMap, null, null);
-		return [
-			...deposit.depositIxs,
-			...deposit.stakeInFarmIfNeededIxs,
-			...deposit.stakeInFlcFarmIfNeededIxs,
-		];
+		return {
+			instructions: [
+				...deposit.depositIxs,
+				...deposit.stakeInFarmIfNeededIxs,
+				...deposit.stakeInFlcFarmIfNeededIxs,
+			],
+			lookupTableAddresses:
+				vaultState.vaultLookupTable === DEFAULT_PUBLIC_KEY ? [] : [vaultState.vaultLookupTable],
+		};
 	}
 
 	async buildWithdrawIxs(
 		vaultId: VaultId,
 		user: TransactionSigner,
 		tokenAmount: number,
-	): Promise<Instruction[]> {
+	): Promise<VaultInstructionsBundle> {
 		const slot = await this.getCurrentSlot();
 		const { vault, reservesMap } = await this.ensureVault(vaultId);
+		const vaultState = await vault.getState();
 		const exchangeRate = await vault.getExchangeRate(slot);
 		const shareAmount = new Decimal(tokenAmount).div(exchangeRate);
 		const withdraw = await vault.withdrawIxs(user, shareAmount, slot, reservesMap, null, null);
-		return [
-			...withdraw.unstakeFromFarmIfNeededIxs,
-			...withdraw.withdrawIxs,
-			...withdraw.postWithdrawIxs,
-		];
+		return {
+			instructions: [
+				...withdraw.unstakeFromFarmIfNeededIxs,
+				...withdraw.withdrawIxs,
+				...withdraw.postWithdrawIxs,
+			],
+			lookupTableAddresses:
+				vaultState.vaultLookupTable === DEFAULT_PUBLIC_KEY ? [] : [vaultState.vaultLookupTable],
+		};
 	}
 
 	private async ensureVault(vaultId: VaultId): Promise<VaultRuntime> {
