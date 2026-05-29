@@ -72,7 +72,6 @@ export async function main(argv = Bun.argv.slice(2)): Promise<void> {
 		durationSec: cli.durationSec,
 		intervalSec: cli.intervalSec,
 	});
-	console.log("config:", config);
 
 	const { rpc, rpcSubscriptions, signer } = await createSolanaContext(
 		config.solanaRpc,

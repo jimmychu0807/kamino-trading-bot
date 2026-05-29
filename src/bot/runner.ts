@@ -2,7 +2,7 @@ import type { AllocationTracker, BotConfig } from "../config/types.ts";
 import { initialAllocatedFromReserve } from "../strategy/planRebalance.ts";
 import { type RebalanceCycleDeps, rebalanceCycle } from "./rebalance.ts";
 
-export type BotRunnerDeps = Omit<RebalanceCycleDeps, "config"> & {
+export type BotRunnerDeps = Omit<RebalanceCycleDeps, "config" | "allocationTracker"> & {
 	config: BotConfig;
 	now?: () => number;
 	sleep?: (ms: number) => Promise<void>;
