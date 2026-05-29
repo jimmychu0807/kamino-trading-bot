@@ -25,8 +25,5 @@ jobs:
       - name: Lint and typecheck
         run: bun run check
 
-      - name: Unit tests
+      - name: Unit & integration tests
         run: bun run test
-
-      - name: Integration tests
-        run: bun run test:integration

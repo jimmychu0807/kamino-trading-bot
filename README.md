@@ -140,11 +140,6 @@ bun run test:e2e          # in-process dry-run bot
 | Unit | No | Config parsing, strategy math, runner scheduling |
 | Integration | Optional | Skipped when `SOLANA_RPC` is unset |
 | E2E dry-run | No | Mocked yield/vault/executor; two+ cycles |
-| E2E live | Yes | Gated on `E2E_LIVE`; placeholder for real txs |
-
-Optional integration env:
-
-- `TEST_WALLET` — pubkey with vault positions for richer position reads
 
 ## Development
 
@@ -187,3 +182,9 @@ tests/
 - v1 sends **one transaction per action** (withdraw or deposit) for simpler debugging.
 - Farm staking is not enabled in v1 (`farmState: null`).
 - Ensure wallet USDC (or the vault underlying) is available before enabling live deposits; a USDG vault with only USDC in the wallet will never deposit.
+
+## A few precautions during development using kamino-sdk
+
+- Beware the minimum amount of deposit and withdrawal in the selected vaults. There are some in 0.1, 1, or 10 USDC.
+- For some deposit/withdrawal transactions, depending on the selected vaults, there could be interact with so many addresses that not building an address lookup table will exceed the Solana transaction size limit.
+- For deposit/withdrawal transactions, increase the compute units limit from the default 200k to 1.4M.
